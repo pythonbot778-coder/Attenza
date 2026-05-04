@@ -1,0 +1,35 @@
+tablename,indexname,indexdef
+subjects,subjects_pkey,CREATE UNIQUE INDEX subjects_pkey ON public.subjects USING btree (id)
+subjects,idx_subjects_class_id,CREATE INDEX idx_subjects_class_id ON public.subjects USING btree (class_id)
+lab_batches,lab_batches_pkey,CREATE UNIQUE INDEX lab_batches_pkey ON public.lab_batches USING btree (id)
+lab_batches,lab_batches_subject_id_batch_name_key,"CREATE UNIQUE INDEX lab_batches_subject_id_batch_name_key ON public.lab_batches USING btree (subject_id, batch_name)"
+attendance_records,attendance_records_pkey,CREATE UNIQUE INDEX attendance_records_pkey ON public.attendance_records USING btree (id)
+attendance_records,attendance_records_session_id_class_member_id_key,"CREATE UNIQUE INDEX attendance_records_session_id_class_member_id_key ON public.attendance_records USING btree (session_id, class_member_id)"
+attendance_records,idx_records_session_id,CREATE INDEX idx_records_session_id ON public.attendance_records USING btree (session_id)
+attendance_records,idx_records_member_id,CREATE INDEX idx_records_member_id ON public.attendance_records USING btree (class_member_id)
+sync_logs,sync_logs_pkey,CREATE UNIQUE INDEX sync_logs_pkey ON public.sync_logs USING btree (id)
+sync_logs,sync_logs_idempotency_key_key,CREATE UNIQUE INDEX sync_logs_idempotency_key_key ON public.sync_logs USING btree (idempotency_key)
+sync_logs,idx_sync_logs_status,CREATE INDEX idx_sync_logs_status ON public.sync_logs USING btree (status)
+admin_logs,admin_logs_pkey,CREATE UNIQUE INDEX admin_logs_pkey ON public.admin_logs USING btree (id)
+class_groups,class_groups_pkey,CREATE UNIQUE INDEX class_groups_pkey ON public.class_groups USING btree (id)
+class_groups,class_groups_branch_year_semester_section_key,"CREATE UNIQUE INDEX class_groups_branch_year_semester_section_key ON public.class_groups USING btree (branch, year, semester, section)"
+attendance_sessions,attendance_sessions_pkey,CREATE UNIQUE INDEX attendance_sessions_pkey ON public.attendance_sessions USING btree (id)
+attendance_sessions,attendance_sessions_local_id_key,CREATE UNIQUE INDEX attendance_sessions_local_id_key ON public.attendance_sessions USING btree (local_id)
+attendance_sessions,attendance_sessions_class_id_subject_id_date_selected_batch_key,"CREATE UNIQUE INDEX attendance_sessions_class_id_subject_id_date_selected_batch_key ON public.attendance_sessions USING btree (class_id, subject_id, date_selected, batch_name)"
+attendance_sessions,idx_sessions_class_id,CREATE INDEX idx_sessions_class_id ON public.attendance_sessions USING btree (class_id)
+attendance_sessions,idx_sessions_subject_id,CREATE INDEX idx_sessions_subject_id ON public.attendance_sessions USING btree (subject_id)
+attendance_sessions,idx_sessions_date,CREATE INDEX idx_sessions_date ON public.attendance_sessions USING btree (date_selected)
+attendance_sessions,unique_session,"CREATE UNIQUE INDEX unique_session ON public.attendance_sessions USING btree (class_id, subject_id, date_selected, batch_name)"
+users,users_pkey,CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)
+users,users_email_key,CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)
+class_members,class_members_pkey,CREATE UNIQUE INDEX class_members_pkey ON public.class_members USING btree (id)
+class_members,class_members_class_id_roll_number_key,"CREATE UNIQUE INDEX class_members_class_id_roll_number_key ON public.class_members USING btree (class_id, roll_number)"
+class_members,idx_one_cr_per_class,CREATE UNIQUE INDEX idx_one_cr_per_class ON public.class_members USING btree (class_id) WHERE ((role = 'CR'::member_role) AND (status = 'active'::member_status))
+class_members,idx_one_lr_per_class,CREATE UNIQUE INDEX idx_one_lr_per_class ON public.class_members USING btree (class_id) WHERE ((role = 'LR'::member_role) AND (status = 'active'::member_status))
+class_members,idx_class_members_class_id,CREATE INDEX idx_class_members_class_id ON public.class_members USING btree (class_id)
+class_members,idx_class_members_roll,CREATE INDEX idx_class_members_roll ON public.class_members USING btree (roll_number)
+class_members,idx_class_members_user_id,CREATE INDEX idx_class_members_user_id ON public.class_members USING btree (user_id)
+role_transfers,role_transfers_pkey,CREATE UNIQUE INDEX role_transfers_pkey ON public.role_transfers USING btree (id)
+role_transfers,idx_role_transfers_to_user,CREATE INDEX idx_role_transfers_to_user ON public.role_transfers USING btree (to_user_id)
+role_transfers,idx_role_transfers_class,CREATE INDEX idx_role_transfers_class ON public.role_transfers USING btree (class_id)
+role_transfers,idx_role_transfers_status,CREATE INDEX idx_role_transfers_status ON public.role_transfers USING btree (status)

@@ -1,0 +1,49 @@
+schemaname,tablename,policyname,permissive,roles,cmd,qual,with_check
+public,sync_logs,sync_logs_own,PERMISSIVE,{public},ALL,(auth.uid() IS NOT NULL),null
+public,class_groups,class_groups_read,PERMISSIVE,{public},SELECT,(auth.uid() IS NOT NULL),null
+public,class_groups,class_groups_insert,PERMISSIVE,{public},INSERT,null,(auth.uid() = created_by)
+public,class_groups,class_groups_update,PERMISSIVE,{public},UPDATE,(auth.uid() = created_by),null
+public,class_members,class_members_insert,PERMISSIVE,{public},INSERT,null,(auth.uid() IS NOT NULL)
+public,class_members,class_members_update,PERMISSIVE,{public},UPDATE,(auth.uid() IS NOT NULL),null
+public,subjects,subjects_read,PERMISSIVE,{public},SELECT,(auth.uid() IS NOT NULL),null
+public,subjects,subjects_insert,PERMISSIVE,{public},INSERT,null,(auth.uid() IS NOT NULL)
+public,subjects,subjects_update,PERMISSIVE,{public},UPDATE,(auth.uid() IS NOT NULL),null
+public,subjects,subjects_delete,PERMISSIVE,{public},DELETE,(auth.uid() IS NOT NULL),null
+public,lab_batches,lab_batches_read,PERMISSIVE,{public},SELECT,(auth.uid() IS NOT NULL),null
+public,lab_batches,lab_batches_insert,PERMISSIVE,{public},INSERT,null,(auth.uid() IS NOT NULL)
+public,attendance_sessions,attendance_sessions_read,PERMISSIVE,{public},SELECT,(auth.uid() IS NOT NULL),null
+public,attendance_sessions,attendance_sessions_insert,PERMISSIVE,{public},INSERT,null,(auth.uid() IS NOT NULL)
+public,attendance_sessions,attendance_sessions_update,PERMISSIVE,{public},UPDATE,(auth.uid() IS NOT NULL),null
+public,attendance_sessions,attendance_sessions_delete,PERMISSIVE,{public},DELETE,(auth.uid() IS NOT NULL),null
+public,attendance_records,attendance_records_read,PERMISSIVE,{public},SELECT,(auth.uid() IS NOT NULL),null
+public,attendance_records,attendance_records_insert,PERMISSIVE,{public},INSERT,null,(auth.uid() IS NOT NULL)
+public,attendance_records,attendance_records_update,PERMISSIVE,{public},UPDATE,(auth.uid() IS NOT NULL),null
+public,attendance_records,attendance_records_delete,PERMISSIVE,{public},DELETE,(auth.uid() IS NOT NULL),null
+public,role_transfers,role_transfers_read,PERMISSIVE,{public},SELECT,(auth.uid() IS NOT NULL),null
+public,users,users_own_select,PERMISSIVE,{public},SELECT,(auth.uid() = id),null
+public,users,users_own_update,PERMISSIVE,{public},UPDATE,(auth.uid() = id),null
+public,users,users_own_insert,PERMISSIVE,{public},INSERT,null,(auth.uid() = id)
+public,users,admin_full_access_users,PERMISSIVE,{public},ALL,(((auth.jwt() ->> 'role'::text) = 'admin'::text) OR (auth.uid() = id)),null
+public,class_groups,admin_full_access_classes,PERMISSIVE,{public},ALL,((auth.jwt() ->> 'role'::text) = 'admin'::text),null
+public,subjects,admin_full_access_subjects,PERMISSIVE,{public},ALL,((auth.jwt() ->> 'role'::text) = 'admin'::text),null
+public,attendance_sessions,admin_full_access_sessions,PERMISSIVE,{public},ALL,((auth.jwt() ->> 'role'::text) = 'admin'::text),null
+public,attendance_records,admin_full_access_records,PERMISSIVE,{public},ALL,((auth.jwt() ->> 'role'::text) = 'admin'::text),null
+public,admin_logs,admin_full_access_admin_logs,PERMISSIVE,{public},ALL,((auth.jwt() ->> 'role'::text) = 'admin'::text),null
+public,role_transfers,role_transfers_insert,PERMISSIVE,{public},INSERT,null,(auth.uid() IS NOT NULL)
+public,role_transfers,role_transfers_update,PERMISSIVE,{public},UPDATE,(auth.uid() IS NOT NULL),null
+public,sync_logs,sync_logs_read,PERMISSIVE,{public},SELECT,(auth.uid() IS NOT NULL),null
+public,sync_logs,sync_logs_insert,PERMISSIVE,{public},INSERT,null,(auth.uid() IS NOT NULL)
+public,sync_logs,sync_logs_update,PERMISSIVE,{public},UPDATE,(auth.uid() IS NOT NULL),null
+public,users,Users can view own profile,PERMISSIVE,{authenticated},SELECT,(id = auth.uid()),null
+public,users,Users can insert own profile,PERMISSIVE,{authenticated},INSERT,null,(id = auth.uid())
+public,users,Users can update own profile,PERMISSIVE,{authenticated},UPDATE,(id = auth.uid()),(id = auth.uid())
+public,users,Users can delete own profile,PERMISSIVE,{authenticated},DELETE,(id = auth.uid()),null
+public,class_members,cm_select,PERMISSIVE,{authenticated},SELECT,(class_id = ANY (get_my_class_ids())),null
+public,class_members,cm_insert,PERMISSIVE,{authenticated},INSERT,null,((user_id = auth.uid()) OR is_cr_or_lr_in_class(class_id))
+public,class_members,cm_update,PERMISSIVE,{authenticated},UPDATE,((user_id = auth.uid()) OR is_cr_or_lr_in_class(class_id)),((user_id = auth.uid()) OR is_cr_or_lr_in_class(class_id))
+public,class_members,cm_admin,PERMISSIVE,{authenticated},ALL,"(EXISTS ( SELECT 1
+   FROM users
+  WHERE ((users.id = auth.uid()) AND (users.role_global = 'admin'::global_role))))",null
+public,role_transfers,rt_select,PERMISSIVE,{authenticated},SELECT,((to_user_id = auth.uid()) OR (from_user_id = auth.uid()) OR is_cr_or_lr_in_class(class_id)),null
+public,role_transfers,rt_insert,PERMISSIVE,{authenticated},INSERT,null,is_cr_or_lr_in_class(class_id)
+public,role_transfers,rt_update,PERMISSIVE,{authenticated},UPDATE,((to_user_id = auth.uid()) OR (from_user_id = auth.uid()) OR is_cr_or_lr_in_class(class_id)),((to_user_id = auth.uid()) OR (from_user_id = auth.uid()) OR is_cr_or_lr_in_class(class_id))

@@ -1,0 +1,12 @@
+table_name,column_name
+attendance_records,id
+sync_logs,id
+role_transfers,id
+admin_logs,id
+attendance_sessions,id
+lab_batches,id
+subjects,id
+class_members,id
+class_groups,id
+users,id
+users,id

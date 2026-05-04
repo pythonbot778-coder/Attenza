@@ -1,0 +1,15 @@
+table_name,column_name,foreign_table,foreign_column
+role_transfers,from_user_id,users,id
+admin_logs,admin_id,users,id
+role_transfers,to_user_id,users,id
+role_transfers,class_id,class_groups,id
+attendance_records,class_member_id,class_members,id
+class_groups,created_by,users,id
+class_members,class_id,class_groups,id
+class_members,user_id,users,id
+subjects,class_id,class_groups,id
+lab_batches,subject_id,subjects,id
+attendance_sessions,subject_id,subjects,id
+attendance_sessions,class_id,class_groups,id
+attendance_sessions,taken_by,users,id
+attendance_records,session_id,attendance_sessions,id

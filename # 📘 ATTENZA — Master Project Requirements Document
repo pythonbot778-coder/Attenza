@@ -1,0 +1,1128 @@
+# 📘 ATTENZA — Master Project Requirements Document
+> **Version:** 1.0.0 | **Date:** May 2026 | **Status:** Ready for Development
+> **App Name:** Attenza | **Platform:** React Native (Expo) | **Backend:** Supabase
+
+---
+
+## 📌 TABLE OF CONTENTS
+
+1. [Product Vision](#1-product-vision)
+2. [User Roles & Capabilities](#2-user-roles--capabilities)
+3. [Tech Stack](#3-tech-stack)
+4. [Folder Structure](#4-folder-structure)
+5. [Authentication & Onboarding Flow](#5-authentication--onboarding-flow)
+6. [Core Concept: Roll Number System](#6-core-concept-roll-number-system)
+7. [Class Initialization Flow](#7-class-initialization-flow)
+8. [Subject Management](#8-subject-management)
+9. [Attendance System (Full Flow)](#9-attendance-system-full-flow)
+10. [Offline-First Architecture](#10-offline-first-architecture)
+11. [Real-Time Sync — CR ↔ LR](#11-real-time-sync--cr--lr)
+12. [Attendance History](#12-attendance-history)
+13. [Student Experience](#13-student-experience)
+14. [Role Transfer System](#14-role-transfer-system)
+15. [Admin Dashboard](#15-admin-dashboard)
+16. [Database Schema (Full)](#16-database-schema-full)
+17. [API Design (Full)](#17-api-design-full)
+18. [Offline Sync Engine (Full Logic)](#18-offline-sync-engine-full-logic)
+19. [All Screens Map](#19-all-screens-map)
+20. [Build Order & Coding Checklist](#20-build-order--coding-checklist)
+21. [Constraints & Validations](#21-constraints--validations)
+22. [Future Scope](#22-future-scope)
+
+---
+
+## 1. 🎯 Product Vision
+
+**Attenza** is a student-led, offline-first classroom attendance management app built for college classes.
+
+### What makes it different:
+- Attendance is taken by **CR (Class Representative)** and **LR (Lady Representative)** — NOT faculty
+- Students are **auto-assigned** to their class using roll numbers
+- Works **fully offline** — syncs to cloud when internet is available
+- **Roll numbers** are the central identity of the entire system
+- Designed for **VIT-AP College** (scalable to multi-college later)
+
+### Core Philosophy:
+> "App never waits for the server. Everything happens locally first. Server is just for sync & backup."
+
+---
+
+## 2. 👥 User Roles & Capabilities
+
+There are **4 roles** in Attenza:
+
+### 2.1 CR — Class Representative
+| Capability | Allowed |
+|-----------|---------|
+| Create class structure | ✅ |
+| Define roll number range | ✅ |
+| Create subjects (class/lab) | ✅ |
+| Take attendance | ✅ |
+| Edit attendance | ✅ |
+| Delete attendance | ✅ |
+| View & search history | ✅ |
+| Share attendance (WhatsApp/Copy) | ✅ |
+| Transfer CR role | ✅ |
+
+### 2.2 LR — Lady Representative
+- **Identical permissions to CR**
+- Fully synced with CR — any change by one instantly reflects on the other
+- Only one CR and one LR per class
+
+### 2.3 Student
+| Capability | Allowed |
+|-----------|---------|
+| View own attendance % | ✅ |
+| View subject-wise breakdown (graph) | ✅ |
+| View history (scroll) | ✅ |
+| Copy attendance summary | ✅ |
+| Edit own name | ✅ |
+| Take attendance | ❌ |
+| Edit/Delete attendance | ❌ |
+| Search/filter history | ❌ |
+| Create subjects | ❌ |
+
+### 2.4 Admin
+| Capability | Allowed |
+|-----------|---------|
+| Convert Student ↔ CR | ✅ |
+| Assign / Remove CR or LR | ✅ |
+| View all users (CR/LR/Students) | ✅ |
+| View all classes and their status | ✅ |
+| Monitor attendance stats system-wide | ✅ |
+| Resolve role conflicts after verification | ✅ |
+| View admin activity logs | ✅ |
+| Delete or archive classes | ✅ |
+
+> **Admin Note:** Admin is a separate credential (not through the mobile app — via a web dashboard or special admin-only screen). Architecture must support admin actions from day one, even if the UI is built in Phase 2.
+
+---
+
+## 3. 🛠️ Tech Stack
+
+| Layer | Technology | Reason |
+|-------|-----------|--------|
+| **Mobile Frontend** | React Native + Expo (TypeScript) | Cross-platform, fast dev, Expo ecosystem |
+| **Local Database** | WatermelonDB | Best offline-first RN DB, observable, sync-ready |
+| **Cloud Backend** | Supabase (PostgreSQL) | Auth (OTP email) + Realtime + REST + RLS |
+| **Authentication** | Supabase Auth | Built-in OTP email verification |
+| **State Management** | Zustand | Lightweight, simple, fast |
+| **Navigation** | React Navigation v6 | Stack + Bottom Tabs |
+| **Sync Engine** | Custom (SyncQueue + SyncLogs) | Handles offline-first + conflict resolution |
+| **UI Components** | Custom + NativeWind (TailwindCSS) | Clean design, responsive |
+| **Sharing** | expo-sharing + expo-clipboard | WhatsApp share + copy text |
+| **Icons** | @expo/vector-icons | Built into Expo |
+| **Date Handling** | date-fns | Lightweight, reliable |
+
+---
+
+## 4. 📁 Folder Structure
+attenza/
+├── src/
+│ ├── screens/
+│ │ ├── auth/
+│ │ │ ├── LoginScreen.tsx
+│ │ │ ├── OTPScreen.tsx
+│ │ │ ├── PasswordSetupScreen.tsx
+│ │ │ └── ProfileSetupScreen.tsx
+│ │ ├── cr_lr/
+│ │ │ ├── HomeScreen.tsx
+│ │ │ ├── RollRangeSetupScreen.tsx
+│ │ │ ├── StudentNamingScreen.tsx
+│ │ │ ├── CreateSubjectScreen.tsx
+│ │ │ ├── AttendanceScreen.tsx
+│ │ │ ├── AttendanceSummaryScreen.tsx
+│ │ │ ├── AttendanceShareScreen.tsx
+│ │ │ ├── HistoryScreen.tsx
+│ │ │ └── SettingsScreen.tsx
+│ │ ├── student/
+│ │ │ ├── StudentHomeScreen.tsx
+│ │ │ └── StudentHistoryScreen.tsx
+│ │ └── admin/
+│ │ ├── AdminDashboardScreen.tsx
+│ │ ├── AdminUsersScreen.tsx
+│ │ ├── AdminClassesScreen.tsx
+│ │ └── AdminResolveScreen.tsx
+│ ├── navigation/
+│ │ ├── AuthNavigator.tsx
+│ │ ├── CRNavigator.tsx
+│ │ ├── StudentNavigator.tsx
+│ │ ├── AdminNavigator.tsx
+│ │ └── RootNavigator.tsx
+│ ├── database/
+│ │ ├── schema.ts
+│ │ ├── models/
+│ │ │ ├── User.ts
+│ │ │ ├── ClassGroup.ts
+│ │ │ ├── ClassMember.ts
+│ │ │ ├── Subject.ts
+│ │ │ ├── LabBatch.ts
+│ │ │ ├── AttendanceSession.ts
+│ │ │ ├── AttendanceRecord.ts
+│ │ │ └── SyncLog.ts
+│ │ └── database.ts
+│ ├── sync/
+│ │ ├── SyncEngine.ts
+│ │ ├── SyncQueue.ts
+│ │ └── ConflictResolver.ts
+│ ├── api/
+│ │ ├── supabase.ts
+│ │ ├── authApi.ts
+│ │ ├── classApi.ts
+│ │ ├── subjectApi.ts
+│ │ ├── attendanceApi.ts
+│ │ ├── syncApi.ts
+│ │ └── adminApi.ts
+│ ├── hooks/
+│ │ ├── useAuth.ts
+│ │ ├── useSync.ts
+│ │ ├── useAttendance.ts
+│ │ └── useClassMembers.ts
+│ ├── store/
+│ │ ├── authStore.ts
+│ │ ├── classStore.ts
+│ │ └── syncStore.ts
+│ ├── utils/
+│ │ ├── rollNumberUtils.ts
+│ │ ├── attendanceFormatter.ts
+│ │ ├── uuidGenerator.ts
+│ │ └── dateUtils.ts
+│ └── constants/
+│ ├── branches.ts
+│ ├── sections.ts
+│ └── colors.ts
+├── supabase/
+│ ├── migrations/
+│ │ └── 001_initial_schema.sql
+│ └── seed.sql
+├── assets/
+├── app.json
+├── tsconfig.json
+└── package.json
+
+---
+
+## 5. 🔐 Authentication & Onboarding Flow
+
+### Login Flow (All Users)
+Here is the full PRD — copy everything below this line and save it as ATTENZA_PRD.md:
+
+text
+# 📘 ATTENZA — Master Project Requirements Document
+> **Version:** 1.0.0 | **Date:** May 2026 | **Status:** Ready for Development
+> **App Name:** Attenza | **Platform:** React Native (Expo) | **Backend:** Supabase
+
+---
+
+## 📌 TABLE OF CONTENTS
+
+1. [Product Vision](#1-product-vision)
+2. [User Roles & Capabilities](#2-user-roles--capabilities)
+3. [Tech Stack](#3-tech-stack)
+4. [Folder Structure](#4-folder-structure)
+5. [Authentication & Onboarding Flow](#5-authentication--onboarding-flow)
+6. [Core Concept: Roll Number System](#6-core-concept-roll-number-system)
+7. [Class Initialization Flow](#7-class-initialization-flow)
+8. [Subject Management](#8-subject-management)
+9. [Attendance System (Full Flow)](#9-attendance-system-full-flow)
+10. [Offline-First Architecture](#10-offline-first-architecture)
+11. [Real-Time Sync — CR ↔ LR](#11-real-time-sync--cr--lr)
+12. [Attendance History](#12-attendance-history)
+13. [Student Experience](#13-student-experience)
+14. [Role Transfer System](#14-role-transfer-system)
+15. [Admin Dashboard](#15-admin-dashboard)
+16. [Database Schema (Full)](#16-database-schema-full)
+17. [API Design (Full)](#17-api-design-full)
+18. [Offline Sync Engine (Full Logic)](#18-offline-sync-engine-full-logic)
+19. [All Screens Map](#19-all-screens-map)
+20. [Build Order & Coding Checklist](#20-build-order--coding-checklist)
+21. [Constraints & Validations](#21-constraints--validations)
+22. [Future Scope](#22-future-scope)
+
+---
+
+## 1. 🎯 Product Vision
+
+**Attenza** is a student-led, offline-first classroom attendance management app built for college classes.
+
+### What makes it different:
+- Attendance is taken by **CR (Class Representative)** and **LR (Lady Representative)** — NOT faculty
+- Students are **auto-assigned** to their class using roll numbers
+- Works **fully offline** — syncs to cloud when internet is available
+- **Roll numbers** are the central identity of the entire system
+- Designed for **VIT-AP College** (scalable to multi-college later)
+
+### Core Philosophy:
+> "App never waits for the server. Everything happens locally first. Server is just for sync & backup."
+
+---
+
+## 2. 👥 User Roles & Capabilities
+
+There are **4 roles** in Attenza:
+
+### 2.1 CR — Class Representative
+| Capability | Allowed |
+|-----------|---------|
+| Create class structure | ✅ |
+| Define roll number range | ✅ |
+| Create subjects (class/lab) | ✅ |
+| Take attendance | ✅ |
+| Edit attendance | ✅ |
+| Delete attendance | ✅ |
+| View & search history | ✅ |
+| Share attendance (WhatsApp/Copy) | ✅ |
+| Transfer CR role | ✅ |
+
+### 2.2 LR — Lady Representative
+- **Identical permissions to CR**
+- Fully synced with CR — any change by one instantly reflects on the other
+- Only one CR and one LR per class
+
+### 2.3 Student
+| Capability | Allowed |
+|-----------|---------|
+| View own attendance % | ✅ |
+| View subject-wise breakdown (graph) | ✅ |
+| View history (scroll) | ✅ |
+| Copy attendance summary | ✅ |
+| Edit own name | ✅ |
+| Take attendance | ❌ |
+| Edit/Delete attendance | ❌ |
+| Search/filter history | ❌ |
+| Create subjects | ❌ |
+
+### 2.4 Admin
+| Capability | Allowed |
+|-----------|---------|
+| Convert Student ↔ CR | ✅ |
+| Assign / Remove CR or LR | ✅ |
+| View all users (CR/LR/Students) | ✅ |
+| View all classes and their status | ✅ |
+| Monitor attendance stats system-wide | ✅ |
+| Resolve role conflicts after verification | ✅ |
+| View admin activity logs | ✅ |
+| Delete or archive classes | ✅ |
+
+> **Admin Note:** Admin is a separate credential (not through the mobile app — via a web dashboard or special admin-only screen). Architecture must support admin actions from day one, even if the UI is built in Phase 2.
+
+---
+
+## 3. 🛠️ Tech Stack
+
+| Layer | Technology | Reason |
+|-------|-----------|--------|
+| **Mobile Frontend** | React Native + Expo (TypeScript) | Cross-platform, fast dev, Expo ecosystem |
+| **Local Database** | WatermelonDB | Best offline-first RN DB, observable, sync-ready |
+| **Cloud Backend** | Supabase (PostgreSQL) | Auth (OTP email) + Realtime + REST + RLS |
+| **Authentication** | Supabase Auth | Built-in OTP email verification |
+| **State Management** | Zustand | Lightweight, simple, fast |
+| **Navigation** | React Navigation v6 | Stack + Bottom Tabs |
+| **Sync Engine** | Custom (SyncQueue + SyncLogs) | Handles offline-first + conflict resolution |
+| **UI Components** | Custom + NativeWind (TailwindCSS) | Clean design, responsive |
+| **Sharing** | expo-sharing + expo-clipboard | WhatsApp share + copy text |
+| **Icons** | @expo/vector-icons | Built into Expo |
+| **Date Handling** | date-fns | Lightweight, reliable |
+
+---
+
+## 4. 📁 Folder Structure
+
+attenza/
+├── src/
+│ ├── screens/
+│ │ ├── auth/
+│ │ │ ├── LoginScreen.tsx
+│ │ │ ├── OTPScreen.tsx
+│ │ │ ├── PasswordSetupScreen.tsx
+│ │ │ └── ProfileSetupScreen.tsx
+│ │ ├── cr_lr/
+│ │ │ ├── HomeScreen.tsx
+│ │ │ ├── RollRangeSetupScreen.tsx
+│ │ │ ├── StudentNamingScreen.tsx
+│ │ │ ├── CreateSubjectScreen.tsx
+│ │ │ ├── AttendanceScreen.tsx
+│ │ │ ├── AttendanceSummaryScreen.tsx
+│ │ │ ├── AttendanceShareScreen.tsx
+│ │ │ ├── HistoryScreen.tsx
+│ │ │ └── SettingsScreen.tsx
+│ │ ├── student/
+│ │ │ ├── StudentHomeScreen.tsx
+│ │ │ └── StudentHistoryScreen.tsx
+│ │ └── admin/
+│ │ ├── AdminDashboardScreen.tsx
+│ │ ├── AdminUsersScreen.tsx
+│ │ ├── AdminClassesScreen.tsx
+│ │ └── AdminResolveScreen.tsx
+│ ├── navigation/
+│ │ ├── AuthNavigator.tsx
+│ │ ├── CRNavigator.tsx
+│ │ ├── StudentNavigator.tsx
+│ │ ├── AdminNavigator.tsx
+│ │ └── RootNavigator.tsx
+│ ├── database/
+│ │ ├── schema.ts
+│ │ ├── models/
+│ │ │ ├── User.ts
+│ │ │ ├── ClassGroup.ts
+│ │ │ ├── ClassMember.ts
+│ │ │ ├── Subject.ts
+│ │ │ ├── LabBatch.ts
+│ │ │ ├── AttendanceSession.ts
+│ │ │ ├── AttendanceRecord.ts
+│ │ │ └── SyncLog.ts
+│ │ └── database.ts
+│ ├── sync/
+│ │ ├── SyncEngine.ts
+│ │ ├── SyncQueue.ts
+│ │ └── ConflictResolver.ts
+│ ├── api/
+│ │ ├── supabase.ts
+│ │ ├── authApi.ts
+│ │ ├── classApi.ts
+│ │ ├── subjectApi.ts
+│ │ ├── attendanceApi.ts
+│ │ ├── syncApi.ts
+│ │ └── adminApi.ts
+│ ├── hooks/
+│ │ ├── useAuth.ts
+│ │ ├── useSync.ts
+│ │ ├── useAttendance.ts
+│ │ └── useClassMembers.ts
+│ ├── store/
+│ │ ├── authStore.ts
+│ │ ├── classStore.ts
+│ │ └── syncStore.ts
+│ ├── utils/
+│ │ ├── rollNumberUtils.ts
+│ │ ├── attendanceFormatter.ts
+│ │ ├── uuidGenerator.ts
+│ │ └── dateUtils.ts
+│ └── constants/
+│ ├── branches.ts
+│ ├── sections.ts
+│ └── colors.ts
+├── supabase/
+│ ├── migrations/
+│ │ └── 001_initial_schema.sql
+│ └── seed.sql
+├── assets/
+├── app.json
+├── tsconfig.json
+└── package.json
+
+text
+
+---
+
+## 5. 🔐 Authentication & Onboarding Flow
+
+### Login Flow (All Users)
+
+[Enter College Email] → [Send OTP] → [Verify OTP] → [Set Password] → [Profile Setup] → [Role Detection] → [Home]
+
+text
+
+### CR / LR Profile Fields:
+| Field | Input Type | Options |
+|-------|-----------|---------|
+| Name | Text | Free text |
+| Roll Number | Text | Free text (validated) |
+| Mobile Number | Text | Validated against DB (not OTP) |
+| Branch | Horizontal scroll carousel | CAC, CE, EC, EEE, ME, CSE, IT, etc. |
+| Year | Horizontal selector | 1, 2, 3, 4 |
+| Semester | Auto-toggle | SEM1 / SEM2 (based on year) |
+| Section | Dropdown | A → K |
+
+### Student Profile Fields:
+| Field | Input Type |
+|-------|-----------|
+| Name | Text |
+| Roll Number | Text |
+| Mobile Number | Text |
+
+### Role Detection Logic (After Profile Save):
+
+User submits profile
+→ Does ClassGroup exist for (branch + year + sem + section)?
+→ YES: Is CR role already filled?
+→ YES: Is this roll in the range? → YES: STUDENT → Home
+→ NO CR yet: → CR role → RollRangeSetup
+→ NO ClassGroup: → CR role → RollRangeSetup
+
+text
+
+---
+
+## 6. 🧠 Core Concept: Roll Number System
+
+> The backbone of Attenza. Everything revolves around roll numbers.
+
+- CR enters `start_roll` and `end_roll`
+- System auto-generates all rolls between them
+- Only these rolls are valid across the entire app
+- Every student auto-links to class via their roll number
+
+### Validation:
+
+roll outside range → ❌ "Roll number exceeds class limit"
+
+text
+
+### Auto-Assignment:
+
+Student logs in with roll "25BFA04145"
+CR defined range: 131–198
+145 is in range → Student auto-linked → sees all attendance
+
+text
+
+### Edge Case — Student Before CR:
+
+No ClassGroup found → "Your CR has not set up the class. Contact your CR."
+Student stays logged in (empty state)
+CR creates class later → auto-sync → student linked automatically
+
+text
+
+---
+
+## 7. 🏗️ Class Initialization Flow
+
+### CR First Login:
+
+Profile Setup → RollRangeSetupScreen
+→ Enter start_roll + end_roll
+→ Preview full list generated
+→ Optional: Assign names (StudentNamingScreen) or SKIP
+→ Save → HomeScreen
+
+text
+
+### LR Login:
+
+Profile Setup → Check if CR exists for class
+→ YES: Direct → HomeScreen
+→ NO: Same setup flow as CR
+
+text
+
+### Duplicate CR:
+
+Another user tries CR for same class
+→ "CR already assigned. You've been added as a student."
+→ Auto-assigned STUDENT role
+
+text
+
+---
+
+## 8. 📚 Subject Management
+
+### Create Subject Fields:
+| Field | Type | Notes |
+|-------|------|-------|
+| Subject Name | Text | e.g., "Network Analysis" |
+| Faculty Name | Text | e.g., "Dr. Bhaskar" |
+| Type | Toggle | CLASS or LAB |
+
+### If LAB — Additional Fields:
+| Field | Input |
+|-------|-------|
+| Batch 1 Start Roll | Text |
+| Batch 1 End Roll | Text |
+| Batch 2 Start Roll | Text |
+| Batch 2 End Roll | Text |
+
+- CLASS → 1 tab in HomeScreen
+- LAB → 2 tabs (Batch 1 & Batch 2)
+- Both batches can take attendance simultaneously — no blocking
+- All batch rolls must be within master class roll range
+
+---
+
+## 9. ✅ Attendance System (Full Flow)
+
+### Step 1 — Entry Screen:
+- Default date = Today
+- ← / → to change date (backdated attendance allowed)
+- Stored under selected date, logged with actual entry timestamp
+
+### Step 2 — Mark Attendance UI:
+
+Grid: 3 roll numbers per row | Last 3 digits shown
+
+Green = Present | Red = Absent
+Tap = toggle Present ↔ Absent
+[MARK ALL PRESENT] [MARK ALL ABSENT]
+Live counter: Present: 45 | Absent: 23 | Total: 68
+
+text
+
+### Step 3 — Summary Screen:
+
+Total: 68 | Present: 45 | Absent: 23
+Absentees: 132, 135, 138... ← highlighted
+[SAVE & CONTINUE]
+
+text
+
+### Step 4 — Share Screen:
+
+━━━━━━━━━━━━━━━━━━━━━━
+ATTENZA — Attendance Report
+━━━━━━━━━━━━━━━━━━━━━━
+Date : 03 May 2026
+Subject : Network Analysis
+Faculty : Dr. Bhaskar
+Class : ECE | Year 2 | SEM1 | Section B
+━━━━━━━━━━━━━━━━━━━━━━
+Total: 68 | Present: 45 | Absent: 23
+━━━━━━━━━━━━━━━━━━━━━━
+PRESENT: 131, 133, 134...
+ABSENT : 132, 135, 138...
+━━━━━━━━━━━━━━━━━━━━━━
+Taken by: CR | Sree Vindyan
+━━━━━━━━━━━━━━━━━━━━━━
+
+[📋 Copy to Clipboard]
+[💬 Share via WhatsApp]
+[✏️ Edit — 5s countdown]
+Auto-close after 5 seconds
+
+text
+
+### Step 5 — Save:
+- Saved to Local DB first (instant)
+- Queued for Supabase sync
+- Syncs to all class members (CR + LR + Students)
+
+---
+
+## 10. 📡 Offline-First Architecture
+
+> **Critical:** No screen should show a loading spinner waiting for network data.
+
+### Core Rule:
+
+User Action → Save Local DB → UI updates instantly → Add to SyncQueue → Sync later
+
+text
+
+### What works offline:
+| Feature | Offline |
+|---------|---------|
+| Take attendance | ✅ |
+| Edit attendance | ✅ |
+| View history | ✅ |
+| Copy/Share attendance | ✅ |
+| Navigate all screens | ✅ |
+| Create new subjects | ❌ |
+| Create new class | ❌ |
+
+### Sync Triggers:
+1. App opens (background)
+2. Internet restored (NetInfo listener)
+3. Manual pull-to-refresh
+
+---
+
+## 11. 🔄 Real-Time Sync — CR ↔ LR
+
+- Supabase Realtime subscriptions for live sync (when online)
+- Offline: changes queue → both devices pull on next sync
+- Conflict: Last Write Wins by `updated_at` timestamp
+- Duplicate session prevention: `UNIQUE(class_id + subject_id + date + batch_name)`
+
+---
+
+## 12. 📜 Attendance History
+
+### CR / LR:
+- Date-wise list (newest first)
+- Filters: Subject | Class/Lab | Batch | Date picker
+- Tap entry → full detail + share option
+
+### Student:
+- Same layout, filtered to their roll only
+- Scroll only — no search, no filter
+- Can copy summary
+
+---
+
+## 13. 🎓 Student Experience
+
+### Student Home Screen:
+
+Hi, Sree! 👋
+Overall Attendance: 82%
+████████████░░░
+
+Subject Breakdown:
+[NA][PHY][CHM][M2][OS]
+85% 78% 90% 75% 88%
+
+text
+
+### Edge Case:
+
+CR not set up → "Your CR hasn't set up the class yet. Contact your CR."
+After CR sets up → auto-sync → student linked → data populates
+
+text
+
+---
+
+## 14. 🔁 Role Transfer System
+
+CR → Settings → Transfer CR Role
+→ Enter new CR email
+→ Current CR verifies (OTP/confirm)
+→ New user gets in-app: "Accept CR role for [Class]?"
+→ New user taps ACCEPT
+→ Role transferred | Old CR revoked ONLY after acceptance
+
+text
+
+- Same flow for LR
+- Admin can forcefully transfer/assign from Admin Dashboard
+
+---
+
+## 15. 🛠️ Admin Dashboard
+
+### Admin Credentials:
+- `role_global = 'admin'` in `users` table
+- Set manually in Supabase by developer
+- Redirected to Admin Dashboard after login
+
+### Admin Screens:
+
+#### 15.1 Admin Home
+- Total users (CR / LR / Student counts)
+- Total active classes
+- Attendance sessions today / this week
+- Recent activity log
+
+#### 15.2 Users Management
+- List all users: role, class, last active
+- Filter: by role / class / branch
+- Actions: Convert Student↔CR, Remove CR/LR, View details
+
+#### 15.3 Classes Management
+- List all ClassGroups: branch, year, sem, section
+- CR name | LR name | Student count | Sessions count
+- Status: Active / Empty
+- Actions: Assign new CR, Delete/archive class
+
+#### 15.4 Conflict Resolution
+- Open help requests from users
+- Admin can: change role, reassign, resolve
+- All actions logged in `admin_logs`
+
+#### 15.5 Analytics
+- Attendance trends across classes
+- Most/least active classes
+- User growth over time
+
+---
+
+## 16. 🗄️ Database Schema (Full)
+
+### Table 1: `users`
+```sql
+id            UUID PRIMARY KEY
+email         TEXT UNIQUE NOT NULL
+password_hash TEXT
+mobile_number TEXT
+name          TEXT
+role_global   ENUM('admin', 'user') DEFAULT 'user'
+created_at    TIMESTAMPTZ DEFAULT now()
+updated_at    TIMESTAMPTZ DEFAULT now()
+```
+
+### Table 2: `class_groups`
+```sql
+id          UUID PRIMARY KEY
+branch      TEXT NOT NULL
+year        INTEGER NOT NULL          -- 1–4
+semester    INTEGER NOT NULL          -- 1 or 2
+section     TEXT NOT NULL             -- A–K
+created_by  UUID REFERENCES users(id)
+created_at  TIMESTAMPTZ DEFAULT now()
+updated_at  TIMESTAMPTZ DEFAULT now()
+UNIQUE(branch, year, semester, section)
+```
+
+### Table 3: `class_members` ← CRITICAL
+```sql
+id          UUID PRIMARY KEY
+class_id    UUID REFERENCES class_groups(id)
+user_id     UUID REFERENCES users(id) NULLABLE
+roll_number TEXT NOT NULL
+name        TEXT
+role        ENUM('CR', 'LR', 'STUDENT') NOT NULL
+status      ENUM('active', 'inactive') DEFAULT 'active'
+joined_at   TIMESTAMPTZ DEFAULT now()
+updated_at  TIMESTAMPTZ DEFAULT now()
+UNIQUE(class_id, roll_number)
+```
+
+### Table 4: `subjects`
+```sql
+id           UUID PRIMARY KEY
+class_id     UUID REFERENCES class_groups(id)
+name         TEXT NOT NULL
+faculty_name TEXT NOT NULL
+type         ENUM('CLASS', 'LAB') NOT NULL
+created_at   TIMESTAMPTZ DEFAULT now()
+updated_at   TIMESTAMPTZ DEFAULT now()
+```
+
+### Table 5: `lab_batches`
+```sql
+id          UUID PRIMARY KEY
+subject_id  UUID REFERENCES subjects(id)
+batch_name  TEXT NOT NULL       -- 'Batch 1' or 'Batch 2'
+start_roll  TEXT NOT NULL
+end_roll    TEXT NOT NULL
+created_at  TIMESTAMPTZ DEFAULT now()
+```
+
+### Table 6: `attendance_sessions`
+```sql
+id            UUID PRIMARY KEY
+local_id      TEXT UNIQUE
+subject_id    UUID REFERENCES subjects(id)
+class_id      UUID REFERENCES class_groups(id)
+batch_name    TEXT NULLABLE
+date_selected DATE NOT NULL
+taken_by      UUID REFERENCES users(id)
+created_at    TIMESTAMPTZ DEFAULT now()
+updated_at    TIMESTAMPTZ DEFAULT now()
+sync_status   ENUM('pending','synced','failed') DEFAULT 'pending'
+UNIQUE(class_id, subject_id, date_selected, batch_name)
+```
+
+### Table 7: `attendance_records`
+```sql
+id              UUID PRIMARY KEY
+session_id      UUID REFERENCES attendance_sessions(id)
+class_member_id UUID REFERENCES class_members(id)
+status          ENUM('present','absent') NOT NULL
+marked_at       TIMESTAMPTZ DEFAULT now()
+UNIQUE(session_id, class_member_id)
+```
+
+### Table 8: `role_transfers`
+```sql
+id            UUID PRIMARY KEY
+class_id      UUID REFERENCES class_groups(id)
+from_user_id  UUID REFERENCES users(id)
+to_user_id    UUID REFERENCES users(id)
+role          ENUM('CR','LR') NOT NULL
+status        ENUM('pending','accepted','rejected') DEFAULT 'pending'
+requested_at  TIMESTAMPTZ DEFAULT now()
+accepted_at   TIMESTAMPTZ NULLABLE
+```
+
+### Table 9: `sync_logs`
+```sql
+id               UUID PRIMARY KEY
+entity_type      TEXT NOT NULL
+entity_id        TEXT NOT NULL
+operation        ENUM('create','update','delete') NOT NULL
+payload          JSONB NOT NULL
+status           ENUM('pending','synced','failed') DEFAULT 'pending'
+idempotency_key  TEXT UNIQUE
+created_at       TIMESTAMPTZ DEFAULT now()
+synced_at        TIMESTAMPTZ NULLABLE
+```
+
+### Table 10: `admin_logs`
+```sql
+id           UUID PRIMARY KEY
+admin_id     UUID REFERENCES users(id)
+action_type  TEXT NOT NULL
+target_id    UUID
+description  TEXT
+created_at   TIMESTAMPTZ DEFAULT now()
+```
+
+---
+
+## 17. 🌐 API Design (Full)
+
+### Auth
+
+POST /auth/send-otp
+POST /auth/verify-otp → returns JWT
+POST /auth/set-password
+POST /user/profile
+GET /user/me
+
+text
+
+### Class
+
+POST /class/create
+GET /class/:class_id
+POST /class/join
+GET /class/:class_id/members
+
+text
+
+### Role Management
+
+GET /class/:class_id/role
+POST /class/transfer-role
+POST /class/accept-role
+POST /class/reject-role
+
+text
+
+### Subjects
+
+POST /subjects/create
+GET /subjects/:class_id
+PUT /subjects/:subject_id
+DELETE /subjects/:subject_id
+
+text
+
+### Attendance
+
+POST /attendance/session
+GET /attendance/history?class_id=&subject_id=&from=&to=
+GET /attendance/student/:roll_number
+PUT /attendance/session/:id
+DELETE /attendance/session/:id
+
+text
+
+### Offline Sync ← CRITICAL
+
+POST /sync/upload → { device_id, data: [{ type, operation, payload, idempotency_key }] }
+GET /sync/download → ?last_sync=<timestamp>
+
+text
+
+### Student
+
+GET /student/dashboard
+GET /student/history
+
+text
+
+### Admin
+
+GET /admin/dashboard
+GET /admin/users
+POST /admin/convert-role
+POST /admin/assign-cr
+DELETE /admin/remove-role
+GET /admin/classes
+DELETE /admin/delete-class
+GET /admin/logs
+POST /admin/resolve
+
+text
+
+---
+
+## 18. 🔄 Offline Sync Engine
+
+### Flow:
+
+WRITE:
+1. Write to WatermelonDB
+2. UI updates instantly (reactive observables)
+3. Add to SyncQueue { type, operation, payload, idempotency_key }
+4. SyncEngine pushes to /sync/upload
+5. Success → sync_status = 'synced'
+6. Failure → retry → 'failed' after 3 attempts
+
+READ:
+Always from local WatermelonDB
+Never wait for Supabase
+Background sync → local DB updates → UI auto-refreshes
+
+text
+
+### Conflict Resolution:
+
+Rule: Last Write Wins (by updated_at)
+Exception: Duplicate session → UNIQUE constraint → first write wins
+
+text
+
+### UUID Strategy:
+
+Offline: local UUID (uuid4) → local_id
+Online: server assigns server UUID
+Map: local_id → server_id stored locally
+
+text
+
+### Sync Triggers:
+- `NetInfo.addEventListener` → online → sync
+- `AppState.addEventListener` → foreground → sync
+- Manual pull-to-refresh
+
+---
+
+## 19. 📱 All Screens Map
+
+### Auth:
+| Screen | Description |
+|--------|-------------|
+| LoginScreen | Email input |
+| OTPScreen | 6-digit verify |
+| PasswordSetupScreen | Create password |
+| ProfileSetupScreen | Full profile form |
+
+### CR / LR:
+| Screen | Description |
+|--------|-------------|
+| RollRangeSetupScreen | Enter start/end roll |
+| StudentNamingScreen | Optional name assign |
+| HomeScreen | Subject list + FAB |
+| CreateSubjectScreen | Class or lab config |
+| AttendanceScreen | Grid UI, mark attendance |
+| AttendanceSummaryScreen | Absentee summary |
+| AttendanceShareScreen | Copy/WhatsApp/5s timer |
+| HistoryScreen | Date-wise filtered history |
+| ProfileScreen | View/edit profile |
+| SettingsScreen | Transfer role, help |
+
+### Student:
+| Screen | Description |
+|--------|-------------|
+| StudentHomeScreen | % + subject bar graph |
+| StudentHistoryScreen | Read-only history |
+
+### Admin:
+| Screen | Description |
+|--------|-------------|
+| AdminDashboardScreen | Analytics overview |
+| AdminUsersScreen | User management + role convert |
+| AdminClassesScreen | Class management |
+| AdminResolveScreen | Conflict resolution |
+
+---
+
+## 20. 🚀 Build Order & Coding Checklist
+
+### Phase 1 — Foundation
+- [ ] Step 1: Expo project setup (TypeScript + folder structure)
+- [ ] Step 2: Supabase schema migration (all 10 tables)
+- [ ] Step 3: WatermelonDB local schema + models
+- [ ] Step 4: Supabase client + .env
+
+### Phase 2 — Auth
+- [ ] Step 5: LoginScreen + OTP (Supabase Auth)
+- [ ] Step 6: PasswordSetupScreen
+- [ ] Step 7: ProfileSetupScreen (carousel selectors)
+- [ ] Step 8: Role detection logic
+- [ ] Step 9: Auth persistence (Zustand + SecureStore)
+
+### Phase 3 — CR/LR Core
+- [ ] Step 10: RollRangeSetupScreen + roll generation
+- [ ] Step 11: StudentNamingScreen (skippable)
+- [ ] Step 12: HomeScreen (subject list + FAB)
+- [ ] Step 13: CreateSubjectScreen (class + lab batches)
+
+### Phase 4 — Attendance
+- [ ] Step 14: AttendanceScreen (grid UI)
+- [ ] Step 15: AttendanceSummaryScreen
+- [ ] Step 16: AttendanceShareScreen (5s timer, copy, WhatsApp)
+- [ ] Step 17: Save to local DB + sync queue
+
+### Phase 5 — Offline Engine
+- [ ] Step 18: SyncQueue
+- [ ] Step 19: SyncEngine (upload)
+- [ ] Step 20: ConnectivityWatcher
+- [ ] Step 21: Pull sync (download)
+- [ ] Step 22: Conflict resolver
+
+### Phase 6 — History & Student
+- [ ] Step 23: HistoryScreen (CR/LR)
+- [ ] Step 24: StudentHomeScreen (% + graph)
+- [ ] Step 25: StudentHistoryScreen
+- [ ] Step 26: Auto-link student by roll number
+
+### Phase 7 — Role Transfer
+- [ ] Step 27: Transfer flow (Settings)
+- [ ] Step 28: Accept/reject in-app notification
+
+### Phase 8 — Admin
+- [ ] Step 29: Admin auth redirect
+- [ ] Step 30: AdminDashboardScreen
+- [ ] Step 31: AdminUsersScreen
+- [ ] Step 32: AdminClassesScreen
+- [ ] Step 33: AdminResolveScreen
+- [ ] Step 34: AdminLogs
+
+### Phase 9 — Polish
+- [ ] Step 35: Error handling
+- [ ] Step 36: Empty states
+- [ ] Step 37: Offline indicator banner
+- [ ] Step 38: App icon + splash screen
+
+---
+
+## 21. ⚠️ Constraints & Validations
+
+| Rule | Detail |
+|------|--------|
+| Roll range is final | Cannot change without admin |
+| No roll outside range | Hard block + error message |
+| One CR per class | DB constraint |
+| One LR per class | DB constraint |
+| Duplicate attendance session | UNIQUE(class_id + subject_id + date + batch) |
+| Student edits only name | All other fields locked |
+| Role transfer requires acceptance | Old role not revoked until accepted |
+| New subjects require online | Cannot create subjects offline |
+| Share screen auto-closes | 5s countdown, edit only within window |
+
+---
+
+## 22. 🚀 Future Scope
+
+| Feature | Priority |
+|---------|---------|
+| Push notifications (attendance alert) | High |
+| Absentee alerts (< 75% warning) | High |
+| Faculty dashboard (view-only) | Medium |
+| Attendance export (PDF/Excel) | Medium |
+| Biometric lock | Medium |
+| AI attendance insights | Low |
+| Multi-college support | Low |
+| Dark mode | Low |
+
+---
+
+## 📊 Architecture Overview
+
+REACT NATIVE (Expo + TypeScript)
+Auth → Profile → Role Detection
+CR/LR Home ←→ Student Home ←→ Admin Home
+↓
+WatermelonDB (Local DB)
+[Users | Classes | Subjects | Attendance | SyncQueue]
+↓
+Sync Engine (background)
+SyncQueue → POST /sync/upload
+GET /sync/download → Local DB
+↓ REST + JWT
+SUPABASE
+[Auth OTP | PostgreSQL | Realtime | RLS]
+
+text
+
+---
+
+*Document: ATTENZA_PRD.md*
+*Version: 1.0.0 | May 2026*
+*Developer: Sree Vindyan*
+*Status: Ready to Code 🚀*

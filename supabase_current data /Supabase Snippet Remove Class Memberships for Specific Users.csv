@@ -1,0 +1,82 @@
+table_name,column_name,data_type,is_nullable,column_default
+admin_logs,id,uuid,NO,uuid_generate_v4()
+admin_logs,admin_id,uuid,NO,null
+admin_logs,action_type,text,NO,null
+admin_logs,target_id,uuid,YES,null
+admin_logs,description,text,YES,null
+admin_logs,created_at,timestamp with time zone,NO,now()
+attendance_records,id,uuid,NO,uuid_generate_v4()
+attendance_records,session_id,uuid,NO,null
+attendance_records,class_member_id,uuid,NO,null
+attendance_records,status,USER-DEFINED,NO,null
+attendance_records,marked_at,timestamp with time zone,NO,now()
+attendance_sessions,id,uuid,NO,uuid_generate_v4()
+attendance_sessions,local_id,text,YES,null
+attendance_sessions,subject_id,uuid,NO,null
+attendance_sessions,class_id,uuid,NO,null
+attendance_sessions,batch_name,text,YES,null
+attendance_sessions,date_selected,date,NO,null
+attendance_sessions,taken_by,uuid,YES,null
+attendance_sessions,created_at,timestamp with time zone,NO,now()
+attendance_sessions,updated_at,timestamp with time zone,NO,now()
+attendance_sessions,sync_status,USER-DEFINED,NO,'pending'::sync_status
+attendance_sessions,taken_at,timestamp with time zone,YES,now()
+attendance_sessions,edited_at,timestamp with time zone,YES,null
+attendance_sessions,is_edited,boolean,YES,false
+class_groups,id,uuid,NO,uuid_generate_v4()
+class_groups,branch,text,NO,null
+class_groups,year,integer,NO,null
+class_groups,semester,integer,NO,null
+class_groups,section,text,NO,null
+class_groups,start_roll,text,NO,null
+class_groups,end_roll,text,NO,null
+class_groups,created_by,uuid,YES,null
+class_groups,created_at,timestamp with time zone,NO,now()
+class_groups,updated_at,timestamp with time zone,NO,now()
+class_members,id,uuid,NO,uuid_generate_v4()
+class_members,class_id,uuid,NO,null
+class_members,user_id,uuid,YES,null
+class_members,roll_number,text,NO,null
+class_members,name,text,YES,null
+class_members,role,USER-DEFINED,NO,'STUDENT'::member_role
+class_members,status,USER-DEFINED,NO,'active'::member_status
+class_members,joined_at,timestamp with time zone,NO,now()
+class_members,updated_at,timestamp with time zone,NO,now()
+lab_batches,id,uuid,NO,uuid_generate_v4()
+lab_batches,subject_id,uuid,NO,null
+lab_batches,batch_name,text,NO,null
+lab_batches,start_roll,text,NO,null
+lab_batches,end_roll,text,NO,null
+lab_batches,created_at,timestamp with time zone,NO,now()
+role_transfers,id,uuid,NO,uuid_generate_v4()
+role_transfers,class_id,uuid,NO,null
+role_transfers,from_user_id,uuid,NO,null
+role_transfers,to_user_id,uuid,NO,null
+role_transfers,role,USER-DEFINED,NO,null
+role_transfers,status,USER-DEFINED,NO,'pending'::transfer_status
+role_transfers,requested_at,timestamp with time zone,NO,now()
+role_transfers,accepted_at,timestamp with time zone,YES,null
+subjects,id,uuid,NO,uuid_generate_v4()
+subjects,class_id,uuid,NO,null
+subjects,name,text,NO,null
+subjects,faculty_name,text,NO,null
+subjects,type,USER-DEFINED,NO,'CLASS'::subject_type
+subjects,created_at,timestamp with time zone,NO,now()
+subjects,updated_at,timestamp with time zone,NO,now()
+sync_logs,id,uuid,NO,uuid_generate_v4()
+sync_logs,entity_type,text,NO,null
+sync_logs,entity_id,text,NO,null
+sync_logs,operation,USER-DEFINED,NO,null
+sync_logs,payload,jsonb,NO,null
+sync_logs,status,USER-DEFINED,NO,'pending'::sync_status
+sync_logs,idempotency_key,text,NO,null
+sync_logs,created_at,timestamp with time zone,NO,now()
+sync_logs,synced_at,timestamp with time zone,YES,null
+users,id,uuid,NO,uuid_generate_v4()
+users,email,text,NO,null
+users,mobile_number,text,YES,null
+users,name,text,YES,null
+users,role_global,USER-DEFINED,NO,'user'::global_role
+users,created_at,timestamp with time zone,NO,now()
+users,updated_at,timestamp with time zone,NO,now()
+users,role,text,YES,null

@@ -1,0 +1,4 @@
+routine_name,routine_type,data_type
+update_updated_at,FUNCTION,trigger
+get_my_class_ids,FUNCTION,ARRAY
+is_cr_or_lr_in_class,FUNCTION,boolean

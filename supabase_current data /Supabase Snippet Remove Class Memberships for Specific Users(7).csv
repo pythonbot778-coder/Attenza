@@ -1,0 +1,6 @@
+table_name,trigger_name,event,action_statement
+users,trg_users_updated_at,UPDATE,EXECUTE FUNCTION update_updated_at()
+class_groups,trg_class_groups_updated_at,UPDATE,EXECUTE FUNCTION update_updated_at()
+class_members,trg_class_members_updated_at,UPDATE,EXECUTE FUNCTION update_updated_at()
+subjects,trg_subjects_updated_at,UPDATE,EXECUTE FUNCTION update_updated_at()
+attendance_sessions,trg_sessions_updated_at,UPDATE,EXECUTE FUNCTION update_updated_at()

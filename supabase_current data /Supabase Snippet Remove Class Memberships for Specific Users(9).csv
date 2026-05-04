@@ -1,0 +1,4 @@
+id,email,mobile_number,name,role_global,created_at,updated_at,role
+31329079-dbb4-4bbc-936e-c148aca9e5ba,2025ece.r194@svce.edu.in,null,Tulasi Ram,user,2026-05-04 09:24:04.53054+00,2026-05-04 16:52:10.432061+00,CR
+67e31aab-113b-497e-a344-6c5fe84f74be,2025ece.r162@svce.edu.in,null,Kavya,user,2026-05-04 09:22:16.377493+00,2026-05-04 16:52:51.194626+00,LR
+60a619bb-63b0-4354-9110-e1603d3f2a42,2025ece.r178@svce.edu.in,null,Sree Vindyan,user,2026-05-04 09:07:24.237351+00,2026-05-04 16:53:49.019389+00,LR
