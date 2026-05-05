@@ -5,20 +5,20 @@ import {
   ActivityIndicator, Alert,
 } from 'react-native'
 import { StackNavigationProp } from '@react-navigation/stack'
-import { RouteProp }           from '@react-navigation/native'
-import { supabase }            from '../../api/supabase'
-import { COLORS }              from '../../constants/colors'
-import { AuthStackParams }     from '../../navigation/AuthNavigator'
+import { RouteProp } from '@react-navigation/native'
+import { supabase } from '../../api/supabase'
+import { COLORS } from '../../constants/colors'
+import { AuthStackParams } from '../../navigation/AuthNavigator'
 
 type Props = {
   navigation: StackNavigationProp<AuthStackParams, 'OTP'>
-  route:      RouteProp<AuthStackParams, 'OTP'>
+  route: RouteProp<AuthStackParams, 'OTP'>
 }
 
 export function OTPScreen({ navigation, route }: Props) {
   const { email } = route.params
-  const [otp,       setOtp]       = useState(['', '', '', '', '', ''])
-  const [loading,   setLoading]   = useState(false)
+  const [otp, setOtp] = useState(['', '', '', '', '', ''])
+  const [loading, setLoading] = useState(false)
   const [resending, setResending] = useState(false)
   const [countdown, setCountdown] = useState(60)
   const inputs = useRef<(TextInput | null)[]>([])

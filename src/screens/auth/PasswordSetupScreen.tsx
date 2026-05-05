@@ -5,26 +5,26 @@ import {
   ActivityIndicator, Alert,
 } from 'react-native'
 import { StackNavigationProp } from '@react-navigation/stack'
-import { RouteProp }           from '@react-navigation/native'
-import { supabase }            from '../../api/supabase'
-import { COLORS }              from '../../constants/colors'
-import { AuthStackParams }     from '../../navigation/AuthNavigator'
+import { RouteProp } from '@react-navigation/native'
+import { supabase } from '../../api/supabase'
+import { COLORS } from '../../constants/colors'
+import { AuthStackParams } from '../../navigation/AuthNavigator'
 
 type Props = {
   navigation: StackNavigationProp<AuthStackParams, 'PasswordSetup'>
-  route:      RouteProp<AuthStackParams, 'PasswordSetup'>
+  route: RouteProp<AuthStackParams, 'PasswordSetup'>
 }
 
 export function PasswordSetupScreen({ navigation, route }: Props) {
-  const { email }              = route.params
-  const [password,    setPassword]    = useState('')
-  const [confirm,     setConfirm]     = useState('')
-  const [showPass,    setShowPass]    = useState(false)
+  const { email } = route.params
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [showPass, setShowPass] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [loading,     setLoading]     = useState(false)
+  const [loading, setLoading] = useState(false)
 
   const isStrong = password.length >= 8
-  const isMatch  = password === confirm && confirm.length > 0
+  const isMatch = password === confirm && confirm.length > 0
 
   async function handleSetPassword() {
     if (!isStrong) {
@@ -89,8 +89,10 @@ export function PasswordSetupScreen({ navigation, route }: Props) {
           <View style={styles.strengthBar}>
             <View style={[
               styles.strengthFill,
-              { width: `${Math.min((password.length / 12) * 100, 100)}%`,
-                backgroundColor: password.length >= 8 ? COLORS.success : COLORS.warning }
+              {
+                width: `${Math.min((password.length / 12) * 100, 100)}%`,
+                backgroundColor: password.length >= 8 ? COLORS.success : COLORS.warning
+              }
             ]} />
           </View>
           <Text style={styles.strengthText}>
@@ -146,8 +148,8 @@ export function PasswordSetupScreen({ navigation, route }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  inner:     { flex: 1, paddingHorizontal: 28, paddingTop: 80 },
-  header:    { marginBottom: 40 },
+  inner: { flex: 1, paddingHorizontal: 28, paddingTop: 80 },
+  header: { marginBottom: 40 },
   title: {
     fontSize: 28,
     fontWeight: '800',

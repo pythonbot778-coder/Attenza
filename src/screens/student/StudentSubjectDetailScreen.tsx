@@ -5,9 +5,9 @@ import {
 } from 'react-native'
 import { RouteProp, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
-import { Ionicons }            from '@expo/vector-icons'
-import { COLORS }              from '../../constants/colors'
-import { useAuthStore }        from '../../store/authStore'
+import { Ionicons } from '@expo/vector-icons'
+import { COLORS } from '../../constants/colors'
+import { useAuthStore } from '../../store/authStore'
 import {
   getStudentSubjectSessions,
   StudentSubjectSession,
@@ -15,10 +15,10 @@ import {
 import { StudentStackParams } from '../../navigation/StudentNavigator'
 
 type Route = RouteProp<StudentStackParams, 'StudentSubjectDetail'>
-type Nav   = StackNavigationProp<StudentStackParams, 'StudentSubjectDetail'>
+type Nav = StackNavigationProp<StudentStackParams, 'StudentSubjectDetail'>
 
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun',
-                'Jul','Aug','Sep','Oct','Nov','Dec']
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 function formatDate(iso: string): string {
   const [y, m, d] = iso.split('-')
@@ -32,7 +32,7 @@ function pctColor(pct: number): string {
 }
 
 export function StudentSubjectDetailScreen() {
-  const route      = useRoute<Route>()
+  const route = useRoute<Route>()
   const navigation = useNavigation<Nav>()
   const { userId } = useAuthStore()
 
@@ -40,7 +40,7 @@ export function StudentSubjectDetailScreen() {
   const isLab = subjectType === 'LAB'
 
   const [sessions, setSessions] = useState<StudentSubjectSession[]>([])
-  const [loading,  setLoading]  = useState(true)
+  const [loading, setLoading] = useState(true)
 
   async function load() {
     if (!userId) return
@@ -58,9 +58,9 @@ export function StudentSubjectDetailScreen() {
   useFocusEffect(useCallback(() => { load() }, [userId, subjectId]))
 
   const present = sessions.filter(s => s.status === 'present').length
-  const total   = sessions.length
-  const pct     = total > 0 ? Math.round((present / total) * 100) : 0
-  const color   = pctColor(pct)
+  const total = sessions.length
+  const pct = total > 0 ? Math.round((present / total) * 100) : 0
+  const color = pctColor(pct)
 
   // Need to attend = ceil to reach 75%
   const needToAttend = (): string => {
@@ -82,7 +82,7 @@ export function StudentSubjectDetailScreen() {
     return (
       <View style={styles.row}>
         <View style={[styles.statusDot,
-          { backgroundColor: isPresent ? COLORS.present : COLORS.absent }]} />
+        { backgroundColor: isPresent ? COLORS.present : COLORS.absent }]} />
         <View style={{ flex: 1 }}>
           <Text style={styles.date}>{formatDate(item.date_selected)}</Text>
           {item.batch_name && (
@@ -91,9 +91,9 @@ export function StudentSubjectDetailScreen() {
         </View>
         <View style={styles.rowRight}>
           <View style={[styles.statusBadge,
-            { backgroundColor: isPresent ? COLORS.present + '20' : COLORS.absent + '20' }]}>
+          { backgroundColor: isPresent ? COLORS.present + '20' : COLORS.absent + '20' }]}>
             <Text style={[styles.statusText,
-              { color: isPresent ? COLORS.present : COLORS.absent }]}>
+            { color: isPresent ? COLORS.present : COLORS.absent }]}>
               {isPresent ? 'Present' : 'Absent'}
             </Text>
           </View>
@@ -119,9 +119,9 @@ export function StudentSubjectDetailScreen() {
           <Text style={styles.headerSub}>{facultyName}</Text>
         </View>
         <View style={[styles.typeBadge,
-          { backgroundColor: isLab ? COLORS.success + '20' : COLORS.primary + '20' }]}>
+        { backgroundColor: isLab ? COLORS.success + '20' : COLORS.primary + '20' }]}>
           <Text style={[styles.typeBadgeText,
-            { color: isLab ? COLORS.success : COLORS.primary }]}>
+          { color: isLab ? COLORS.success : COLORS.primary }]}>
             {subjectType}
           </Text>
         </View>
@@ -145,21 +145,21 @@ export function StudentSubjectDetailScreen() {
                 <Text style={styles.heroLabel}>Personal Attendance</Text>
                 <View style={styles.heroRow}>
                   <View style={[styles.heroStat,
-                    { backgroundColor: COLORS.present + '15' }]}>
+                  { backgroundColor: COLORS.present + '15' }]}>
                     <Text style={[styles.heroStatNum,
-                      { color: COLORS.present }]}>{present}</Text>
+                    { color: COLORS.present }]}>{present}</Text>
                     <Text style={styles.heroStatLabel}>Present</Text>
                   </View>
                   <View style={[styles.heroStat,
-                    { backgroundColor: COLORS.absent + '15' }]}>
+                  { backgroundColor: COLORS.absent + '15' }]}>
                     <Text style={[styles.heroStatNum,
-                      { color: COLORS.absent }]}>{total - present}</Text>
+                    { color: COLORS.absent }]}>{total - present}</Text>
                     <Text style={styles.heroStatLabel}>Absent</Text>
                   </View>
                   <View style={[styles.heroStat,
-                    { backgroundColor: COLORS.primary + '15' }]}>
+                  { backgroundColor: COLORS.primary + '15' }]}>
                     <Text style={[styles.heroStatNum,
-                      { color: COLORS.primary }]}>{total}</Text>
+                    { color: COLORS.primary }]}>{total}</Text>
                     <Text style={styles.heroStatLabel}>Total</Text>
                   </View>
                 </View>
@@ -167,7 +167,7 @@ export function StudentSubjectDetailScreen() {
                 {/* Progress bar */}
                 <View style={styles.heroBar}>
                   <View style={[styles.heroBarFill,
-                    { width: `${pct}%` as any, backgroundColor: color }]} />
+                  { width: `${pct}%` as any, backgroundColor: color }]} />
                 </View>
               </View>
 
@@ -210,10 +210,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: COLORS.border,
   },
   headerCenter: { flex: 1 },
-  headerTitle:  { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary },
-  headerSub:    { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
-  typeBadge:    { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  typeBadgeText:{ fontSize: 12, fontWeight: '700' },
+  headerTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary },
+  headerSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  typeBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  typeBadgeText: { fontSize: 12, fontWeight: '700' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 40 },
   emptyIcon: { fontSize: 40, marginBottom: 8 },
   emptyText: { color: COLORS.textSecondary, fontSize: 14 },
@@ -225,14 +225,14 @@ const styles = StyleSheet.create({
     borderRadius: 20, borderWidth: 2,
     padding: 20, alignItems: 'center', marginBottom: 14,
   },
-  heroPct:   { fontSize: 56, fontWeight: '900' },
+  heroPct: { fontSize: 56, fontWeight: '900' },
   heroLabel: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2, marginBottom: 16 },
-  heroRow:   { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  heroRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   heroStat: {
     flex: 1, alignItems: 'center',
     paddingVertical: 10, borderRadius: 12,
   },
-  heroStatNum:   { fontSize: 22, fontWeight: '900' },
+  heroStatNum: { fontSize: 22, fontWeight: '900' },
   heroStatLabel: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
   heroBar: {
     height: 8, borderRadius: 4,
@@ -269,8 +269,8 @@ const styles = StyleSheet.create({
     borderRadius: 14, padding: 14, marginBottom: 10,
   },
   statusDot: { width: 10, height: 10, borderRadius: 5 },
-  date:      { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
-  batchLabel:{ fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  date: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
+  batchLabel: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   rowRight: { alignItems: 'flex-end', gap: 4 },
   statusBadge: {
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,

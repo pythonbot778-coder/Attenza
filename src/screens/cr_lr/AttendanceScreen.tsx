@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import {
     View, Text, StyleSheet, TouchableOpacity,
-    ScrollView, ActivityIndicator, Alert,
+    ActivityIndicator, Alert,
     FlatList, Dimensions,
 } from 'react-native'
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native'
@@ -22,22 +22,14 @@ import {
     rejectRoleTransfer,
     RoleTransfer,
 } from '../../api/roleTransferApi'
-
-type AttendanceRouteParams = {
-    subjectId: string
-    subjectName: string
-    facultyName: string
-    type: 'CLASS' | 'LAB'
-    batches?: { id: string; batch_name: string; start_roll: string; end_roll: string }[]
-}
+import { getShowNames } from '../../utils/attendancePrefs'
 
 type AttendanceRoute = RouteProp<HomeStackParams, 'Attendance'>
 type AttendanceNavProp = StackNavigationProp<HomeStackParams, 'Attendance'>
-
 type AttendanceStatus = 'present' | 'absent'
 
 const SCREEN_WIDTH = Dimensions.get('window').width
-const CELL_SIZE = Math.floor((SCREEN_WIDTH - 32 - 16) / 3)  // 3 per row, 16px padding each side, 8px gap
+const CELL_SIZE = Math.floor((SCREEN_WIDTH - 32 - 16) / 3)
 
 function todayString(): string {
     const d = new Date()
@@ -57,15 +49,13 @@ function offsetDate(iso: string, days: number): string {
 }
 
 const MemberCell = React.memo(function MemberCell({
-    item,
-    isPresent,
-    onPress,
-    cellSize,
+    item, isPresent, showNames, onPress, cellSize,
 }: {
-    item: ClassMember,
-    isPresent: boolean,
-    onPress: (id: string) => void,
-    cellSize: number,
+    item: ClassMember
+    isPresent: boolean
+    showNames: boolean
+    onPress: (id: string) => void
+    cellSize: number
 }) {
     return (
         <TouchableOpacity
@@ -74,21 +64,21 @@ const MemberCell = React.memo(function MemberCell({
                 {
                     backgroundColor: isPresent ? COLORS.present : COLORS.absent + '18',
                     borderColor: isPresent ? COLORS.present : COLORS.absent + '60',
-                    width: cellSize, height: cellSize
+                    width: cellSize, height: cellSize,
                 },
             ]}
             activeOpacity={0.7}
             onPress={() => onPress(item.id)}
         >
-            <Text style={[
-                styles.cellRoll,
-                { color: isPresent ? '#fff' : COLORS.absent },
-            ]}>
+            <Text style={[styles.cellRoll, { color: isPresent ? '#fff' : COLORS.absent }]}>
                 {getDisplayRoll(item.roll_number)}
             </Text>
-            {item.name ? (
-                <Text style={[styles.cellName, { color: isPresent ? 'rgba(255,255,255,0.85)' : COLORS.textMuted }]}
-                    numberOfLines={1}>
+            {/* Only render name row when pref is ON and name exists */}
+            {showNames && item.name ? (
+                <Text
+                    style={[styles.cellName, { color: isPresent ? 'rgba(255,255,255,0.85)' : COLORS.textMuted }]}
+                    numberOfLines={1}
+                >
                     {item.name.split(' ')[0]}
                 </Text>
             ) : null}
@@ -102,50 +92,7 @@ const MemberCell = React.memo(function MemberCell({
 export function AttendanceScreen() {
     const route = useRoute<AttendanceRoute>()
     const navigation = useNavigation<AttendanceNavProp>()
-    const { classId, userId, name, role, branch, year, semester, section } = useAuthStore()
-
-    // ─── Pending role transfer check ──────────────────────────────
-    useEffect(() => {
-        if (!userId) return
-        getPendingTransferForUser(userId).then((transfer) => {
-            if (!transfer) return
-            showTransferPopup(transfer)
-        }).catch(() => { /* silent */ })
-    }, [userId])
-
-    function showTransferPopup(transfer: RoleTransfer) {
-        Alert.alert(
-            `You've Been Assigned as ${transfer.role}`,
-            `You have been assigned as ${transfer.role}. Accept or Reject.`,
-            [
-                {
-                    text: 'Reject',
-                    style: 'cancel',
-                    onPress: async () => {
-                        try {
-                            await rejectRoleTransfer(transfer.id)
-                        } catch (e: any) {
-                            Alert.alert('Error', e.message)
-                        }
-                    },
-                },
-                {
-                    text: 'Accept',
-                    style: 'default',
-                    onPress: async () => {
-                        try {
-                            await acceptRoleTransfer(transfer)
-                            await hydrateAuthState()
-                        } catch (e: any) {
-                            Alert.alert('Error', e.message)
-                        }
-                    },
-                },
-            ],
-            { cancelable: false }
-        )
-    }
-    // ─────────────────────────────────────────────────────────────
+    const { classId, userId, role, branch, year, semester, section } = useAuthStore()
 
     const { subjectId, subjectName, facultyName, type, batches } = route.params
 
@@ -162,6 +109,49 @@ export function AttendanceScreen() {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
 
+    // ── Name display preference (loaded from AsyncStorage once) ──
+    const [showNames, setShowNamesState] = useState(true)
+
+    useEffect(() => {
+        getShowNames().then(val => setShowNamesState(val))
+    }, [])
+
+    // ── Pending role transfer check ──────────────────────────────
+    useEffect(() => {
+        if (!userId) return
+        getPendingTransferForUser(userId).then((transfer) => {
+            if (!transfer) return
+            showTransferPopup(transfer)
+        }).catch(() => { /* silent */ })
+    }, [userId])
+
+    function showTransferPopup(transfer: RoleTransfer) {
+        Alert.alert(
+            `You've Been Assigned as ${transfer.role}`,
+            `You have been assigned as ${transfer.role}. Accept or Reject.`,
+            [
+                {
+                    text: 'Reject', style: 'cancel',
+                    onPress: async () => {
+                        try { await rejectRoleTransfer(transfer.id) }
+                        catch (e: any) { Alert.alert('Error', e.message) }
+                    },
+                },
+                {
+                    text: 'Accept', style: 'default',
+                    onPress: async () => {
+                        try {
+                            await acceptRoleTransfer(transfer)
+                            await hydrateAuthState()
+                        } catch (e: any) { Alert.alert('Error', e.message) }
+                    },
+                },
+            ],
+            { cancelable: false }
+        )
+    }
+
+    // ── Load members — default ALL to present ────────────────────
     const loadMembers = useCallback(async () => {
         if (!classId) return
         setLoading(true)
@@ -173,9 +163,9 @@ export function AttendanceScreen() {
                 list = await getMembersForClass(classId)
             }
             setMembers(list)
-            // Default everyone to absent
+            // ✅ Default everyone to PRESENT
             const init: Record<string, AttendanceStatus> = {}
-            list.forEach((m) => { init[m.id] = 'absent' })
+            list.forEach((m) => { init[m.id] = 'present' })
             setAttendance(init)
         } catch (err: any) {
             Alert.alert('Error', err.message)
@@ -212,7 +202,6 @@ export function AttendanceScreen() {
             Alert.alert('No members', 'No students found to mark attendance.')
             return
         }
-
         setSaving(true)
         try {
             const records = members.map((m) => ({
@@ -229,13 +218,12 @@ export function AttendanceScreen() {
                 records,
             })
 
-            // Build summary data
             const presentMembers = members.filter((m) => attendance[m.id] === 'present')
             const absentMembers = members.filter((m) => attendance[m.id] !== 'present')
 
             navigation.navigate('AttendanceSummary', {
-                subjectName: subjectName,
-                facultyName: facultyName,
+                subjectName,
+                facultyName,
                 subjectType: type,
                 dateSelected: selectedDate,
                 presentCount: presentMembers.length,
@@ -253,17 +241,15 @@ export function AttendanceScreen() {
         }
     }
 
-    const renderCell = useCallback(({ item }: { item: ClassMember }) => {
-        const isPresent = attendance[item.id] === 'present'
-        return (
-            <MemberCell
-                item={item}
-                isPresent={isPresent}
-                onPress={toggleMember}
-                cellSize={CELL_SIZE}
-            />
-        )
-    }, [attendance, toggleMember])
+    const renderCell = useCallback(({ item }: { item: ClassMember }) => (
+        <MemberCell
+            item={item}
+            isPresent={attendance[item.id] === 'present'}
+            showNames={showNames}
+            onPress={toggleMember}
+            cellSize={CELL_SIZE}
+        />
+    ), [attendance, toggleMember, showNames])
 
     return (
         <View style={styles.container}>
@@ -286,10 +272,7 @@ export function AttendanceScreen() {
 
             {/* Date Picker Row */}
             <View style={styles.dateRow}>
-                <TouchableOpacity
-                    style={styles.dateArrow}
-                    onPress={() => setSelectedDate((d) => offsetDate(d, -1))}
-                >
+                <TouchableOpacity style={styles.dateArrow} onPress={() => setSelectedDate((d) => offsetDate(d, -1))}>
                     <Text style={styles.dateArrowText}>‹</Text>
                 </TouchableOpacity>
                 <View style={styles.dateCenter}>
@@ -309,22 +292,16 @@ export function AttendanceScreen() {
                 </TouchableOpacity>
             </View>
 
-            {/* Batch Selector (LAB only) */}
+            {/* Batch Selector */}
             {hasBatches && (
                 <View style={styles.batchRow}>
                     {batchOptions.map((b) => (
                         <TouchableOpacity
                             key={b.id}
-                            style={[
-                                styles.batchPill,
-                                selectedBatch?.id === b.id && styles.batchPillActive,
-                            ]}
+                            style={[styles.batchPill, selectedBatch?.id === b.id && styles.batchPillActive]}
                             onPress={() => setSelectedBatch(b)}
                         >
-                            <Text style={[
-                                styles.batchPillText,
-                                selectedBatch?.id === b.id && styles.batchPillTextActive,
-                            ]}>
+                            <Text style={[styles.batchPillText, selectedBatch?.id === b.id && styles.batchPillTextActive]}>
                                 {b.batch_name}
                             </Text>
                         </TouchableOpacity>
@@ -332,7 +309,7 @@ export function AttendanceScreen() {
                 </View>
             )}
 
-            {/* Mark All Buttons */}
+            {/* Mark All */}
             <View style={styles.markAllRow}>
                 <TouchableOpacity
                     style={[styles.markAllBtn, { backgroundColor: COLORS.present + '18', borderColor: COLORS.present }]}
@@ -348,7 +325,7 @@ export function AttendanceScreen() {
                 </TouchableOpacity>
             </View>
 
-            {/* Attendance Grid */}
+            {/* Grid */}
             {loading ? (
                 <View style={styles.centered}>
                     <ActivityIndicator size="large" color={COLORS.primary} />
@@ -370,7 +347,7 @@ export function AttendanceScreen() {
                 />
             )}
 
-            {/* Footer: Summary + Save */}
+            {/* Footer */}
             <View style={styles.footer}>
                 <View style={styles.countRow}>
                     <View style={[styles.countBadge, { backgroundColor: COLORS.present + '20' }]}>
@@ -386,7 +363,6 @@ export function AttendanceScreen() {
                         <Text style={[styles.countLabel, { color: COLORS.primary }]}>Total</Text>
                     </View>
                 </View>
-
                 <TouchableOpacity
                     style={[styles.saveBtn, (saving || loading) && styles.saveBtnDisabled]}
                     onPress={handleSave}
@@ -405,37 +381,28 @@ export function AttendanceScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.background },
-
     header: {
         flexDirection: 'row', alignItems: 'center',
         paddingHorizontal: 16, paddingTop: 52, paddingBottom: 14,
         backgroundColor: COLORS.surface,
-        borderBottomWidth: 1, borderBottomColor: COLORS.border,
-        gap: 10,
+        borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 10,
     },
     backBtn: { paddingRight: 4 },
     backText: { fontSize: 16, color: COLORS.primary, fontWeight: '600' },
     headerCenter: { flex: 1 },
     headerTitle: { fontSize: 17, fontWeight: '800', color: COLORS.textPrimary },
     headerSubtitle: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
-    rolePill: {
-        paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12,
-    },
+    rolePill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
     rolePillText: { color: '#fff', fontWeight: '700', fontSize: 12 },
 
     dateRow: {
         flexDirection: 'row', alignItems: 'center',
         backgroundColor: COLORS.surface,
-        borderBottomWidth: 1, borderBottomColor: COLORS.border,
-        paddingVertical: 10,
+        borderBottomWidth: 1, borderBottomColor: COLORS.border, paddingVertical: 10,
     },
-    dateArrow: {
-        paddingHorizontal: 20, paddingVertical: 6,
-    },
+    dateArrow: { paddingHorizontal: 20, paddingVertical: 6 },
     dateArrowText: { fontSize: 26, color: COLORS.primary, fontWeight: '300' },
-    dateCenter: {
-        flex: 1, alignItems: 'center',
-    },
+    dateCenter: { flex: 1, alignItems: 'center' },
     dateText: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
     todayBadge: {
         fontSize: 11, color: COLORS.primary, fontWeight: '600',
@@ -448,25 +415,13 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.surface,
         borderBottomWidth: 1, borderBottomColor: COLORS.border,
     },
-    batchPill: {
-        paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20,
-        borderWidth: 1.5, borderColor: COLORS.border,
-        backgroundColor: COLORS.background,
-    },
-    batchPillActive: {
-        backgroundColor: COLORS.success, borderColor: COLORS.success,
-    },
+    batchPill: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5, borderColor: COLORS.border, backgroundColor: COLORS.background },
+    batchPillActive: { backgroundColor: COLORS.success, borderColor: COLORS.success },
     batchPillText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
     batchPillTextActive: { color: '#fff' },
 
-    markAllRow: {
-        flexDirection: 'row', gap: 10,
-        paddingHorizontal: 16, paddingVertical: 10,
-    },
-    markAllBtn: {
-        flex: 1, paddingVertical: 9, borderRadius: 10,
-        borderWidth: 1.5, alignItems: 'center',
-    },
+    markAllRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingVertical: 10 },
+    markAllBtn: { flex: 1, paddingVertical: 9, borderRadius: 10, borderWidth: 1.5, alignItems: 'center' },
     markAllText: { fontSize: 13, fontWeight: '700' },
 
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -476,33 +431,18 @@ const styles = StyleSheet.create({
     grid: { padding: 8, paddingBottom: 8 },
     gridRow: { gap: 8, marginBottom: 8, paddingHorizontal: 8 },
 
-    cell: {
-        borderRadius: 12, borderWidth: 1.5,
-        alignItems: 'center', justifyContent: 'center',
-        padding: 6,
-    },
+    cell: { borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', padding: 6 },
     cellRoll: { fontSize: 18, fontWeight: '800' },
     cellName: { fontSize: 10, fontWeight: '500', marginTop: 1 },
     cellStatus: { fontSize: 13, fontWeight: '700', marginTop: 2 },
 
-    footer: {
-        backgroundColor: COLORS.surface,
-        borderTopWidth: 1, borderTopColor: COLORS.border,
-        padding: 16,
-    },
-    countRow: {
-        flexDirection: 'row', gap: 10, marginBottom: 12,
-    },
-    countBadge: {
-        flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12,
-    },
+    footer: { backgroundColor: COLORS.surface, borderTopWidth: 1, borderTopColor: COLORS.border, padding: 16 },
+    countRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+    countBadge: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12 },
     countNum: { fontSize: 22, fontWeight: '900' },
     countLabel: { fontSize: 11, fontWeight: '600', marginTop: 2 },
 
-    saveBtn: {
-        backgroundColor: COLORS.primary, borderRadius: 12,
-        paddingVertical: 15, alignItems: 'center',
-    },
+    saveBtn: { backgroundColor: COLORS.primary, borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
     saveBtnDisabled: { opacity: 0.5 },
     saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 })

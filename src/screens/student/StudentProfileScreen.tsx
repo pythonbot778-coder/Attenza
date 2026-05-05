@@ -72,15 +72,15 @@ export function StudentProfileScreen() {
 
       {/* Info cards */}
       <View style={styles.card}>
-        <InfoRow icon="mail-outline"        label="Email"       value={email} />
+        <InfoRow icon="mail-outline" label="Email" value={email} />
         <View style={styles.divider} />
-        <InfoRow icon="card-outline"        label="Roll Number" value={rollNumber} />
+        <InfoRow icon="card-outline" label="Roll Number" value={rollNumber} />
         <View style={styles.divider} />
-        <InfoRow icon="school-outline"      label="Branch"      value={branch} />
+        <InfoRow icon="school-outline" label="Branch" value={branch} />
         <View style={styles.divider} />
-        <InfoRow icon="layers-outline"      label="Year / SEM"  value={`Year ${year} • SEM ${semester}`} />
+        <InfoRow icon="layers-outline" label="Year / SEM" value={`Year ${year} • SEM ${semester}`} />
         <View style={styles.divider} />
-        <InfoRow icon="people-outline"      label="Section"     value={`Section ${section}`} />
+        <InfoRow icon="people-outline" label="Section" value={`Section ${section}`} />
       </View>
 
       {/* Sign out */}
@@ -93,9 +93,9 @@ export function StudentProfileScreen() {
         {signingOut
           ? <ActivityIndicator color="#fff" />
           : <>
-              <Ionicons name="log-out-outline" size={18} color="#fff" />
-              <Text style={styles.signOutText}>Sign Out</Text>
-            </>
+            <Ionicons name="log-out-outline" size={18} color="#fff" />
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </>
         }
       </TouchableOpacity>
     </View>
@@ -103,14 +103,14 @@ export function StudentProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: COLORS.background },
+  container: { flex: 1, backgroundColor: COLORS.background },
   header: {
     paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16,
     backgroundColor: COLORS.surface,
     borderBottomWidth: 1, borderBottomColor: COLORS.border,
   },
   headerTitle: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary },
-  headerSub:   { fontSize: 12, color: COLORS.textSecondary, marginTop: 3 },
+  headerSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 3 },
   avatarSection: {
     alignItems: 'center', paddingVertical: 28,
   },
@@ -120,8 +120,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
     marginBottom: 12,
   },
-  avatarText:  { fontSize: 32, fontWeight: '900', color: '#fff' },
-  avatarName:  { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary },
+  avatarText: { fontSize: 32, fontWeight: '900', color: '#fff' },
+  avatarName: { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary },
   rolePill: {
     marginTop: 8, backgroundColor: COLORS.primary + '20',
     paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20,
@@ -132,15 +132,15 @@ const styles = StyleSheet.create({
     borderRadius: 16, borderWidth: 1, borderColor: COLORS.border,
     paddingHorizontal: 16,
   },
-  infoRow:    { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 14 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 14 },
   infoIcon: {
     width: 36, height: 36, borderRadius: 10,
     backgroundColor: COLORS.primary + '15',
     justifyContent: 'center', alignItems: 'center',
   },
-  infoLabel:  { fontSize: 11, color: COLORS.textSecondary, fontWeight: '600' },
-  infoValue:  { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, marginTop: 2 },
-  divider:    { height: 1, backgroundColor: COLORS.border },
+  infoLabel: { fontSize: 11, color: COLORS.textSecondary, fontWeight: '600' },
+  infoValue: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, marginTop: 2 },
+  divider: { height: 1, backgroundColor: COLORS.border },
   signOutBtn: {
     margin: 24, backgroundColor: COLORS.absent,
     borderRadius: 14, paddingVertical: 14,

@@ -6,23 +6,23 @@ import {
 } from 'react-native'
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
-import { Ionicons }         from '@expo/vector-icons'
-import { HomeStackParams }  from '../../navigation/CRNavigator'
-import { COLORS }           from '../../constants/colors'
+import { Ionicons } from '@expo/vector-icons'
+import { HomeStackParams } from '../../navigation/CRNavigator'
+import { COLORS } from '../../constants/colors'
 import { updateSubject, deleteSubject } from '../../api/subjectApi'
 
 type EditRoute = RouteProp<HomeStackParams, 'EditSubject'>
-type EditNav   = StackNavigationProp<HomeStackParams, 'EditSubject'>
+type EditNav = StackNavigationProp<HomeStackParams, 'EditSubject'>
 
 export function EditSubjectScreen() {
-  const route      = useRoute<EditRoute>()
+  const route = useRoute<EditRoute>()
   const navigation = useNavigation<EditNav>()
 
   const { subjectId, subjectName, facultyName, type } = route.params
 
-  const [name,    setName]    = useState(subjectName)
+  const [name, setName] = useState(subjectName)
   const [faculty, setFaculty] = useState(facultyName)
-  const [saving,  setSaving]  = useState(false)
+  const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   async function handleSave() {
@@ -92,9 +92,9 @@ export function EditSubjectScreen() {
 
           {/* Type badge */}
           <View style={[styles.typeBadge,
-            { backgroundColor: type === 'LAB' ? COLORS.success + '20' : COLORS.primary + '20' }]}>
+          { backgroundColor: type === 'LAB' ? COLORS.success + '20' : COLORS.primary + '20' }]}>
             <Text style={[styles.typeBadgeText,
-              { color: type === 'LAB' ? COLORS.success : COLORS.primary }]}>
+            { color: type === 'LAB' ? COLORS.success : COLORS.primary }]}>
               {type === 'LAB' ? '🔬 Lab Subject' : '🏫 Class Subject'}
             </Text>
           </View>
@@ -143,9 +143,9 @@ export function EditSubjectScreen() {
               {deleting
                 ? <ActivityIndicator color={COLORS.absent} />
                 : <>
-                    <Ionicons name="trash-outline" size={18} color={COLORS.absent} />
-                    <Text style={styles.deleteBtnText}>Delete Subject</Text>
-                  </>
+                  <Ionicons name="trash-outline" size={18} color={COLORS.absent} />
+                  <Text style={styles.deleteBtnText}>Delete Subject</Text>
+                </>
               }
             </TouchableOpacity>
           </View>

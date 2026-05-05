@@ -4,16 +4,16 @@ import {
   StyleSheet, ScrollView, Alert, ActivityIndicator,
 } from 'react-native'
 import { StackNavigationProp } from '@react-navigation/stack'
-import { RouteProp }           from '@react-navigation/native'
-import { COLORS }              from '../../constants/colors'
-import { generateRollRange }   from '../../utils/rollNumberUtils'
-import { AuthStackParams }     from '../../navigation/AuthNavigator'
+import { RouteProp } from '@react-navigation/native'
+import { COLORS } from '../../constants/colors'
+import { generateRollRange } from '../../utils/rollNumberUtils'
+import { AuthStackParams } from '../../navigation/AuthNavigator'
 import { createClassWithMembers } from '../../api/classApi'
 import { useAuthStore, hydrateAuthState } from '../../store/authStore'
 
 type Props = {
   navigation: StackNavigationProp<AuthStackParams, 'RollRangeSetup'>
-  route:      RouteProp<AuthStackParams, 'RollRangeSetup'>
+  route: RouteProp<AuthStackParams, 'RollRangeSetup'>
 }
 
 export function RollRangeSetupScreen({ navigation, route }: Props) {
@@ -21,13 +21,13 @@ export function RollRangeSetupScreen({ navigation, route }: Props) {
   const { branch, year, semester, section, name, rollNumber, role } = route.params
 
   const [startRoll, setStartRoll] = useState('')
-  const [endRoll,   setEndRoll]   = useState('')
-  const [preview,   setPreview]   = useState<string[]>([])
-  const [loading,   setLoading]   = useState(false)
+  const [endRoll, setEndRoll] = useState('')
+  const [preview, setPreview] = useState<string[]>([])
+  const [loading, setLoading] = useState(false)
 
   function handlePreview() {
     const start = startRoll.trim().toUpperCase()
-    const end   = endRoll.trim().toUpperCase()
+    const end = endRoll.trim().toUpperCase()
 
     if (!start || !end) {
       Alert.alert('Required', 'Enter both start and end roll numbers.')
@@ -63,14 +63,14 @@ export function RollRangeSetupScreen({ navigation, route }: Props) {
       const result = await createClassWithMembers({
         userId,
         branch,
-        year:      Number(year),
-        semester:  Number(semester),
+        year: Number(year),
+        semester: Number(semester),
         section,
         startRoll: startRoll.trim().toUpperCase(),
-        endRoll:   endRoll.trim().toUpperCase(),
-        role:      role as 'CR' | 'LR',
-        userName:  name,
-        userRoll:  rollNumber,
+        endRoll: endRoll.trim().toUpperCase(),
+        role: role as 'CR' | 'LR',
+        userName: name,
+        userRoll: rollNumber,
       })
 
       if (result.error === 'CR_EXISTS') {
@@ -171,9 +171,9 @@ export function RollRangeSetupScreen({ navigation, route }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  content:   { padding: 24, paddingTop: 60 },
-  header:    { marginBottom: 28 },
-  title:    { fontSize: 28, fontWeight: '800', color: COLORS.textPrimary },
+  content: { padding: 24, paddingTop: 60 },
+  header: { marginBottom: 28 },
+  title: { fontSize: 28, fontWeight: '800', color: COLORS.textPrimary },
   subtitle: { fontSize: 15, color: COLORS.textSecondary, marginTop: 8, lineHeight: 22 },
   infoCard: {
     backgroundColor: COLORS.primary + '12',
@@ -208,9 +208,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   previewHeader: { marginBottom: 16 },
-  previewTitle:  { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
-  previewRange:  { fontSize: 13, color: COLORS.textSecondary, marginTop: 4 },
-  grid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  previewTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
+  previewRange: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   gridItem: {
     width: 52, height: 36,
     backgroundColor: COLORS.primaryLight + '22',

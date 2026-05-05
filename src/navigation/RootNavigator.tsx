@@ -4,14 +4,12 @@ import { NavigationContainer } from '@react-navigation/native'
 import { createStackNavigator } from '@react-navigation/stack'
 import { supabase } from '../api/supabase'
 import { useAuthStore, hydrateAuthState } from '../store/authStore'
-import { AuthNavigator } from './AuthNavigator'
-import { CRNavigator } from './CRNavigator'
+import { AuthNavigator }    from './AuthNavigator'
+import { CRNavigator }      from './CRNavigator'
 import { StudentNavigator } from './StudentNavigator'
-import { COLORS } from '../constants/colors'
-import {
-  RoleTransfer,
-  getPendingTransferForUser,
-} from '../api/roleTransferApi'
+import { AdminNavigator }   from './AdminNavigator'
+import { COLORS }           from '../constants/colors'
+import { RoleTransfer, getPendingTransferForUser } from '../api/roleTransferApi'
 import { RoleTransferScreen } from '../screens/shared/RoleTransferScreen'
 
 const Stack = createStackNavigator()
@@ -30,10 +28,7 @@ function ClassNotSetUpScreen() {
 }
 
 const waitStyles = StyleSheet.create({
-  container: {
-    flex: 1, justifyContent: 'center', alignItems: 'center',
-    padding: 32, backgroundColor: COLORS.background,
-  },
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, backgroundColor: COLORS.background },
   icon:  { fontSize: 56, marginBottom: 20 },
   title: { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 12, textAlign: 'center' },
   body:  { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22 },
@@ -41,28 +36,22 @@ const waitStyles = StyleSheet.create({
 
 export function RootNavigator() {
   const { isAuthenticated, isLoading, role, classNotSetUp, userId, reset } = useAuthStore()
+  const [pendingTransfer, setPendingTransfer] = useState<RoleTransfer | null>(null)
+  const [transferChecked, setTransferChecked] = useState(false)
 
-  // Pending role transfer gate
-  const [pendingTransfer,  setPendingTransfer]  = useState<RoleTransfer | null>(null)
-  const [transferChecked,  setTransferChecked]  = useState(false)
-
-  // Check for pending transfer once auth is fully resolved
   useEffect(() => {
-    if (!isAuthenticated || isLoading || !userId) {
-      // Reset gate on sign-out
+    if (!isAuthenticated || isLoading || !userId || role === 'admin') {
       setPendingTransfer(null)
-      setTransferChecked(false)
+      setTransferChecked(true)
       return
     }
-
     setTransferChecked(false)
     getPendingTransferForUser(userId)
-      .then(transfer => setPendingTransfer(transfer))
+      .then(t => setPendingTransfer(t))
       .catch(() => setPendingTransfer(null))
       .finally(() => setTransferChecked(true))
-  }, [isAuthenticated, isLoading, userId])
+  }, [isAuthenticated, isLoading, userId, role])
 
-  // Auth state listener
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN')  hydrateAuthState()
@@ -71,11 +60,9 @@ export function RootNavigator() {
     return () => subscription.unsubscribe()
   }, [reset])
 
-  // Still booting
   if (isLoading) return null
 
   function AppNavigator() {
-    // Authenticated but pending transfer check not done yet
     if (isAuthenticated && !transferChecked) {
       return (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background }}>
@@ -83,20 +70,13 @@ export function RootNavigator() {
         </View>
       )
     }
-
-    // Pending transfer — show acceptance gate before anything else
     if (pendingTransfer) {
-      return (
-        <RoleTransferScreen
-          transfer={pendingTransfer}
-          onDone={() => setPendingTransfer(null)}
-        />
-      )
+      return <RoleTransferScreen transfer={pendingTransfer} onDone={() => setPendingTransfer(null)} />
     }
-
-    if (classNotSetUp)        return <ClassNotSetUpScreen />
+    if (role === 'admin')               return <AdminNavigator />
+    if (classNotSetUp)                  return <ClassNotSetUpScreen />
     if (role === 'CR' || role === 'LR') return <CRNavigator />
-    if (role === 'STUDENT')   return <StudentNavigator />
+    if (role === 'STUDENT')             return <StudentNavigator />
     return <AuthNavigator />
   }
 

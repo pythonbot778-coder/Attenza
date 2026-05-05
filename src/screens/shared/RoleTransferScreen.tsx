@@ -105,9 +105,9 @@ export function RoleTransferScreen({ transfer, onDone }: Props) {
           {loading === 'accept'
             ? <ActivityIndicator color="#fff" />
             : <>
-                <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                <Text style={styles.acceptText}>Accept — Become {transfer.role}</Text>
-              </>
+              <Ionicons name="checkmark-circle" size={20} color="#fff" />
+              <Text style={styles.acceptText}>Accept — Become {transfer.role}</Text>
+            </>
           }
         </TouchableOpacity>
 
@@ -120,9 +120,9 @@ export function RoleTransferScreen({ transfer, onDone }: Props) {
           {loading === 'reject'
             ? <ActivityIndicator color={COLORS.absent} />
             : <>
-                <Ionicons name="close-circle-outline" size={20} color={COLORS.absent} />
-                <Text style={styles.rejectText}>Decline</Text>
-              </>
+              <Ionicons name="close-circle-outline" size={20} color={COLORS.absent} />
+              <Text style={styles.rejectText}>Decline</Text>
+            </>
           }
         </TouchableOpacity>
       </View>

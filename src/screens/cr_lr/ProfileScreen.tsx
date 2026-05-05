@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import {
     View, Text, StyleSheet, TouchableOpacity,
     ScrollView, Alert, ActivityIndicator,
-    useWindowDimensions, FlatList
+    useWindowDimensions, FlatList, Switch,
 } from 'react-native'
 import { TabView, SceneMap } from 'react-native-tab-view'
 import { COLORS } from '../../constants/colors'
@@ -11,13 +11,30 @@ import { supabase } from '../../api/supabase'
 import { getClassMembers, ClassMemberRow } from '../../api/membersApi'
 import { getDisplayRoll } from '../../utils/rollNumberUtils'
 import { initiateRoleTransfer } from '../../api/roleTransferApi'
+import { getShowNames, setShowNames } from '../../utils/attendancePrefs'
 
+// ─── Profile Tab ──────────────────────────────────────────────
 function ProfileTab() {
     const {
         name, email, rollNumber, role, branch,
         year, semester, section,
     } = useAuthStore()
     const [signingOut, setSigningOut] = useState(false)
+
+    // ── Name display preference toggle ──
+    const [showNames, setShowNamesState] = useState(true)
+    const [prefsLoading, setPrefsLoading] = useState(true)
+
+    useEffect(() => {
+        getShowNames()
+            .then(val => setShowNamesState(val))
+            .finally(() => setPrefsLoading(false))
+    }, [])
+
+    async function handleToggleNames(val: boolean) {
+        setShowNamesState(val)
+        await setShowNames(val)
+    }
 
     async function handleSignOut() {
         Alert.alert(
@@ -48,11 +65,14 @@ function ProfileTab() {
 
     return (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            {/* Avatar */}
             <View style={styles.avatarSection}>
                 <View style={[styles.avatar,
                 { backgroundColor: role === 'CR' ? COLORS.crColor : COLORS.lrColor }]}>
                     <Text style={styles.avatarText}>
-                        {name ? name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() : '??'}
+                        {name
+                            ? name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
+                            : '??'}
                     </Text>
                 </View>
                 <Text style={styles.profileName}>{name ?? '—'}</Text>
@@ -62,6 +82,7 @@ function ProfileTab() {
                 </View>
             </View>
 
+            {/* Account Info */}
             <View style={styles.card}>
                 <Text style={styles.cardTitle}>Account Info</Text>
                 <InfoRow label="Email" value={email ?? '—'} />
@@ -69,6 +90,7 @@ function ProfileTab() {
                 <InfoRow label="Role" value={role ?? '—'} />
             </View>
 
+            {/* Class Info */}
             <View style={styles.card}>
                 <Text style={styles.cardTitle}>Class Info</Text>
                 <InfoRow label="Branch" value={branch ?? '—'} />
@@ -77,6 +99,31 @@ function ProfileTab() {
                 <InfoRow label="Section" value={section ?? '—'} />
             </View>
 
+            {/* Attendance Preferences */}
+            <View style={styles.card}>
+                <Text style={styles.cardTitle}>Attendance Display</Text>
+                <View style={styles.prefRow}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.prefLabel}>Show Student Names</Text>
+                        <Text style={styles.prefSub}>
+                            {showNames
+                                ? 'Names shown below roll numbers in grid'
+                                : 'Only last 3 digits of roll shown in grid'}
+                        </Text>
+                    </View>
+                    {prefsLoading
+                        ? <ActivityIndicator size="small" color={COLORS.primary} />
+                        : <Switch
+                            value={showNames}
+                            onValueChange={handleToggleNames}
+                            trackColor={{ false: COLORS.border, true: COLORS.primary + '80' }}
+                            thumbColor={showNames ? COLORS.primary : COLORS.textMuted}
+                        />
+                    }
+                </View>
+            </View>
+
+            {/* Sign Out */}
             <TouchableOpacity
                 style={[styles.signOutBtn, signingOut && { opacity: 0.6 }]}
                 onPress={handleSignOut}
@@ -94,6 +141,7 @@ function ProfileTab() {
     )
 }
 
+// ─── Class Members Tab ────────────────────────────────────────
 function ClassMembersTab() {
     const { classId, userId, role: myRole } = useAuthStore()
     const [members, setMembers] = useState<ClassMemberRow[]>([])
@@ -126,7 +174,7 @@ function ClassMembersTab() {
         const targetRole = myRole
         Alert.alert(
             `Transfer ${targetRole} Role?`,
-            `Do you want to make ${member.name ?? getDisplayRoll(member.roll_number)} the new ${targetRole}?\n\nThey will need to accept this request upon their next login.`,
+            `Do you want to make ${member.name ?? member.roll_number} the new ${targetRole}?\n\nThey will need to accept this request upon their next login.`,
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
@@ -161,9 +209,11 @@ function ClassMembersTab() {
                 activeOpacity={0.7}
             >
                 <View style={styles.memberLeft}>
-                    <View style={[styles.statusDot, { backgroundColor: hasJoined ? COLORS.success : COLORS.border }]} />
+                    <View style={[styles.statusDot,
+                    { backgroundColor: hasJoined ? COLORS.success : COLORS.border }]} />
                     <View>
-                        <Text style={styles.memberRoll}>{getDisplayRoll(item.roll_number)}</Text>
+                        {/* ✅ Full roll number shown here */}
+                        <Text style={styles.memberRoll}>{item.roll_number}</Text>
                         {hasJoined && item.name ? (
                             <Text style={styles.memberName}>{item.name}{isMe ? ' (You)' : ''}</Text>
                         ) : (
@@ -207,11 +257,9 @@ function ClassMembersTab() {
     )
 }
 
-// Custom tab bar — avoids TabBar version incompatibilities entirely
+// ─── Custom Tab Bar ───────────────────────────────────────────
 function CustomTabBar({
-    routes,
-    index,
-    onIndexChange,
+    routes, index, onIndexChange,
 }: {
     routes: { key: string; title: string }[]
     index: number
@@ -239,6 +287,7 @@ function CustomTabBar({
     )
 }
 
+// ─── Root Screen ──────────────────────────────────────────────
 export function ProfileScreen() {
     const layout = useWindowDimensions()
     const [index, setIndex] = useState(0)
@@ -247,10 +296,7 @@ export function ProfileScreen() {
         { key: 'members', title: 'Class Members' },
     ])
 
-    const renderScene = SceneMap({
-        profile: ProfileTab,
-        members: ClassMembersTab,
-    })
+    const renderScene = SceneMap({ profile: ProfileTab, members: ClassMembersTab })
 
     return (
         <View style={styles.container}>
@@ -261,59 +307,35 @@ export function ProfileScreen() {
                 onIndexChange={setIndex}
                 initialLayout={{ width: layout.width }}
                 renderTabBar={() => (
-                    <CustomTabBar
-                        routes={routes}
-                        index={index}
-                        onIndexChange={setIndex}
-                    />
+                    <CustomTabBar routes={routes} index={index} onIndexChange={setIndex} />
                 )}
             />
         </View>
     )
 }
 
+// ─── Styles ───────────────────────────────────────────────────
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.background },
     navHeader: { height: 44, backgroundColor: COLORS.surface },
-    content:   { paddingTop: 30, paddingHorizontal: 20 },
+    content: { paddingTop: 30, paddingHorizontal: 20 },
 
-    // Custom tab bar
-    tabBar: {
-        flexDirection: 'row',
-        backgroundColor: COLORS.surface,
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
-    },
-    tabItem: {
-        flex: 1, alignItems: 'center',
-        paddingVertical: 14, position: 'relative',
-    },
-    tabLabel: {
-        fontSize: 13, fontWeight: '600',
-        color: COLORS.textSecondary,
-    },
-    tabLabelActive: {
-        color: COLORS.primary,
-        fontWeight: '700',
-    },
-    tabIndicator: {
-        position: 'absolute', bottom: 0,
-        left: 16, right: 16, height: 2,
-        backgroundColor: COLORS.primary,
-        borderRadius: 2,
-    },
+    tabBar: { flexDirection: 'row', backgroundColor: COLORS.surface, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+    tabItem: { flex: 1, alignItems: 'center', paddingVertical: 14, position: 'relative' },
+    tabLabel: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
+    tabLabelActive: { color: COLORS.primary, fontWeight: '700' },
+    tabIndicator: { position: 'absolute', bottom: 0, left: 16, right: 16, height: 2, backgroundColor: COLORS.primary, borderRadius: 2 },
 
     avatarSection: { alignItems: 'center', marginBottom: 28 },
     avatar: {
         width: 84, height: 84, borderRadius: 42,
-        justifyContent: 'center', alignItems: 'center',
-        marginBottom: 14,
+        justifyContent: 'center', alignItems: 'center', marginBottom: 14,
         shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.15, shadowRadius: 8, elevation: 5,
     },
-    avatarText:  { fontSize: 30, fontWeight: '800', color: '#fff' },
+    avatarText: { fontSize: 30, fontWeight: '800', color: '#fff' },
     profileName: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 8 },
-    roleBadge:   { paddingHorizontal: 16, paddingVertical: 5, borderRadius: 20 },
+    roleBadge: { paddingHorizontal: 16, paddingVertical: 5, borderRadius: 20 },
     roleBadgeText: { color: '#fff', fontWeight: '700', fontSize: 13 },
 
     card: {
@@ -326,18 +348,24 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12,
     },
     infoRow: {
-        flexDirection: 'row', justifyContent: 'space-between',
-        alignItems: 'center', paddingVertical: 10,
-        borderBottomWidth: 1, borderBottomColor: COLORS.border + '60',
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border + '60',
     },
     infoLabel: { fontSize: 14, color: COLORS.textSecondary, fontWeight: '500' },
     infoValue: { fontSize: 14, color: COLORS.textPrimary, fontWeight: '600' },
 
+    // Preference toggle row
+    prefRow: {
+        flexDirection: 'row', alignItems: 'center',
+        paddingVertical: 8, gap: 12,
+    },
+    prefLabel: { fontSize: 14, color: COLORS.textPrimary, fontWeight: '600' },
+    prefSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+
     signOutBtn: {
         backgroundColor: COLORS.absent + '15',
         borderWidth: 1.5, borderColor: COLORS.absent + '60',
-        borderRadius: 12, paddingVertical: 15,
-        alignItems: 'center', marginTop: 8,
+        borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 8,
     },
     signOutText: { color: COLORS.absent, fontSize: 16, fontWeight: '700' },
 
@@ -345,19 +373,16 @@ const styles = StyleSheet.create({
         padding: 16, backgroundColor: COLORS.primary + '10',
         borderBottomWidth: 1, borderBottomColor: COLORS.border,
     },
-    membersInfoText: {
-        fontSize: 13, color: COLORS.textPrimary,
-        textAlign: 'center', fontWeight: '500',
-    },
+    membersInfoText: { fontSize: 13, color: COLORS.textPrimary, textAlign: 'center', fontWeight: '500' },
     memberRow: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
         backgroundColor: COLORS.surface, padding: 16, borderRadius: 12,
         marginBottom: 10, borderWidth: 1, borderColor: COLORS.border,
     },
-    memberLeft:      { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    statusDot:       { width: 10, height: 10, borderRadius: 5 },
-    memberRoll:      { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary },
-    memberName:      { fontSize: 13, fontWeight: '500', color: COLORS.textSecondary, marginTop: 2 },
+    memberLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    statusDot: { width: 10, height: 10, borderRadius: 5 },
+    memberRoll: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary },
+    memberName: { fontSize: 13, fontWeight: '500', color: COLORS.textSecondary, marginTop: 2 },
     memberNotJoined: { fontSize: 13, fontWeight: '400', color: COLORS.textMuted, marginTop: 2, fontStyle: 'italic' },
     memberRoleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
     memberRoleBadgeText: { fontSize: 11, fontWeight: '800', color: '#fff' },
