@@ -7,6 +7,7 @@ export interface UserProfile {
   name: string | null
   email: string | null
   role: Role
+  mobile_number?: string | null
 }
 
 export async function ensureUserProfile(profile: UserProfile) {
@@ -14,13 +15,14 @@ export async function ensureUserProfile(profile: UserProfile) {
     .from('users')
     .upsert(
       {
-        id: profile.id,
-        name: profile.name,
-        email: profile.email,
-        role: profile.role,
+        id:            profile.id,
+        name:          profile.name,
+        email:         profile.email,
+        mobile_number: profile.mobile_number ?? null,
       },
-      { onConflict: 'id' }
+      { onConflict: 'id' }  // conflict on primary key only
     )
 
-  if (error) throw error
+  // Silently ignore any remaining duplicate — user already exists
+  if (error && error.code !== '23505') throw error
 }

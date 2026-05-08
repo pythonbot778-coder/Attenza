@@ -10,6 +10,7 @@ import { generateRollRange } from '../../utils/rollNumberUtils'
 import { AuthStackParams } from '../../navigation/AuthNavigator'
 import { createClassWithMembers } from '../../api/classApi'
 import { useAuthStore, hydrateAuthState } from '../../store/authStore'
+import { validateRollRange, check } from '../../utils/validation'
 
 type Props = {
   navigation: StackNavigationProp<AuthStackParams, 'RollRangeSetup'>
@@ -29,21 +30,13 @@ export function RollRangeSetupScreen({ navigation, route }: Props) {
     const start = startRoll.trim().toUpperCase()
     const end = endRoll.trim().toUpperCase()
 
-    if (!start || !end) {
-      Alert.alert('Required', 'Enter both start and end roll numbers.')
-      return
-    }
+    if (!check(validateRollRange(start, end))) return
 
     const rolls = generateRollRange(start, end)
     if (rolls.length === 0) {
       Alert.alert('Invalid Range', 'Start roll must come before end roll.')
       return
     }
-    if (rolls.length > 200) {
-      Alert.alert('Too Large', 'Class size cannot exceed 200 students.')
-      return
-    }
-
     setPreview(rolls)
   }
 
@@ -52,9 +45,20 @@ export function RollRangeSetupScreen({ navigation, route }: Props) {
       Alert.alert('Preview First', 'Tap "Preview List" before saving.')
       return
     }
-
     if (!userId || !name || !rollNumber) {
       Alert.alert('Error', 'User data missing. Please go back and re-enter profile.')
+      return
+    }
+
+    const start = startRoll.trim().toUpperCase()
+    const end = endRoll.trim().toUpperCase()
+    const roll = rollNumber.trim().toUpperCase()
+
+    if (!preview.includes(roll)) {
+      Alert.alert(
+        'Roll Number Outside Range',
+        `Your roll number (${roll}) is not within the declared class range (${start} → ${end}).\n\nPlease correct the range or your roll number.`
+      )
       return
     }
 
@@ -66,11 +70,11 @@ export function RollRangeSetupScreen({ navigation, route }: Props) {
         year: Number(year),
         semester: Number(semester),
         section,
-        startRoll: startRoll.trim().toUpperCase(),
-        endRoll: endRoll.trim().toUpperCase(),
+        startRoll: start,
+        endRoll: end,
         role: role as 'CR' | 'LR',
         userName: name,
-        userRoll: rollNumber,
+        userRoll: roll,
       })
 
       if (result.error === 'CR_EXISTS') {
@@ -78,10 +82,37 @@ export function RollRangeSetupScreen({ navigation, route }: Props) {
         return
       }
 
-      await hydrateAuthState()
-      Alert.alert('✅ Class Created!', `${preview.length} students added.`)
+      Alert.alert(
+        '✅ Class Created!',
+        `${preview.length} students added. Welcome to your class!`,
+        [{
+          text: 'Continue →',
+          onPress: async () => {
+            await hydrateAuthState()
+          },
+        }]
+      )
     } catch (err: any) {
-      Alert.alert('Error', err.message)
+      // ── Show real error in dev so you can debug ──────────────
+      const realMsg = err?.message ?? JSON.stringify(err)
+      const code = err?.code ?? ''
+
+      if (__DEV__) {
+        // Full error visible in dev — helps find the real issue
+        Alert.alert(
+          'Error (Dev)',
+          `Code: ${code}\n\n${realMsg}`
+        )
+      } else {
+        // Sanitized for production
+        const userMsg =
+          code.startsWith('PGRST') ||
+            code.startsWith('42') ||
+            code.startsWith('23')
+            ? 'Something went wrong. Please try again.'
+            : realMsg || 'An unexpected error occurred.'
+        Alert.alert('Error', userMsg)
+      }
     } finally {
       setLoading(false)
     }
@@ -112,6 +143,7 @@ export function RollRangeSetupScreen({ navigation, route }: Props) {
             placeholder="e.g. 25ECE04131"
             placeholderTextColor={COLORS.textMuted}
             autoCapitalize="characters"
+            maxLength={15}
           />
 
           <Text style={[styles.label, { marginTop: 16 }]}>Ending Roll Number</Text>
@@ -122,13 +154,10 @@ export function RollRangeSetupScreen({ navigation, route }: Props) {
             placeholder="e.g. 25ECE04198"
             placeholderTextColor={COLORS.textMuted}
             autoCapitalize="characters"
+            maxLength={15}
           />
 
-          <TouchableOpacity
-            style={styles.previewBtn}
-            onPress={handlePreview}
-            activeOpacity={0.85}
-          >
+          <TouchableOpacity style={styles.previewBtn} onPress={handlePreview} activeOpacity={0.85}>
             <Text style={styles.previewBtnText}>Preview List</Text>
           </TouchableOpacity>
         </View>
@@ -141,11 +170,23 @@ export function RollRangeSetupScreen({ navigation, route }: Props) {
             </View>
             <View style={styles.grid}>
               {preview.map((r) => (
-                <View key={r} style={styles.gridItem}>
-                  <Text style={styles.gridText}>{r.slice(-3)}</Text>
+                <View
+                  key={r}
+                  style={[
+                    styles.gridItem,
+                    r === rollNumber.trim().toUpperCase() && styles.gridItemHighlight,
+                  ]}
+                >
+                  <Text style={[
+                    styles.gridText,
+                    r === rollNumber.trim().toUpperCase() && styles.gridTextHighlight,
+                  ]}>
+                    {r.slice(-3)}
+                  </Text>
                 </View>
               ))}
             </View>
+            <Text style={styles.gridHint}>Your roll is highlighted in the list above.</Text>
           </View>
         )}
 
@@ -176,37 +217,23 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: '800', color: COLORS.textPrimary },
   subtitle: { fontSize: 15, color: COLORS.textSecondary, marginTop: 8, lineHeight: 22 },
   infoCard: {
-    backgroundColor: COLORS.primary + '12',
-    borderRadius: 12, padding: 14,
-    borderWidth: 1, borderColor: COLORS.primary + '30',
-    marginBottom: 20, gap: 4,
+    backgroundColor: COLORS.primary + '12', borderRadius: 12, padding: 14,
+    borderWidth: 1, borderColor: COLORS.primary + '30', marginBottom: 20, gap: 4,
   },
   infoText: { fontSize: 13, color: COLORS.primary, fontWeight: '600' },
   card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16, padding: 20,
-    borderWidth: 1, borderColor: COLORS.border,
-    marginBottom: 20,
+    backgroundColor: COLORS.surface, borderRadius: 16, padding: 20,
+    borderWidth: 1, borderColor: COLORS.border, marginBottom: 20,
   },
   label: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 8 },
   input: {
-    backgroundColor: COLORS.background,
-    borderWidth: 1.5, borderColor: COLORS.border,
-    borderRadius: 12, paddingHorizontal: 16,
-    paddingVertical: 13, fontSize: 16, color: COLORS.textPrimary,
+    backgroundColor: COLORS.background, borderWidth: 1.5, borderColor: COLORS.border,
+    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 13,
+    fontSize: 16, color: COLORS.textPrimary,
   },
-  previewBtn: {
-    marginTop: 20, borderWidth: 1.5,
-    borderColor: COLORS.primary, borderRadius: 12,
-    paddingVertical: 13, alignItems: 'center',
-  },
+  previewBtn: { marginTop: 20, borderWidth: 1.5, borderColor: COLORS.primary, borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
   previewBtnText: { color: COLORS.primary, fontSize: 15, fontWeight: '700' },
-  previewCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16, padding: 20,
-    borderWidth: 1, borderColor: COLORS.border,
-    marginBottom: 20,
-  },
+  previewCard: { backgroundColor: COLORS.surface, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: COLORS.border, marginBottom: 20 },
   previewHeader: { marginBottom: 16 },
   previewTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
   previewRange: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4 },
@@ -214,15 +241,17 @@ const styles = StyleSheet.create({
   gridItem: {
     width: 52, height: 36,
     backgroundColor: COLORS.primaryLight + '22',
-    borderRadius: 8, borderWidth: 1,
-    borderColor: COLORS.primaryLight,
+    borderRadius: 8, borderWidth: 1, borderColor: COLORS.primaryLight,
     alignItems: 'center', justifyContent: 'center',
   },
-  gridText: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
-  button: {
+  gridItemHighlight: {
     backgroundColor: COLORS.primary,
-    borderRadius: 12, paddingVertical: 15, alignItems: 'center',
+    borderColor: COLORS.primaryDark,
   },
+  gridText: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
+  gridTextHighlight: { color: '#fff' },
+  gridHint: { fontSize: 11, color: COLORS.textMuted, marginTop: 10, textAlign: 'center' },
+  button: { backgroundColor: COLORS.primary, borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
   buttonDisabled: { opacity: 0.5 },
   buttonText: { color: COLORS.textOnPrimary, fontSize: 16, fontWeight: '700' },
 })

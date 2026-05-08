@@ -53,7 +53,13 @@ export function SubjectStatsScreen() {
             const data = await getSubjectStats(subjectId, selectedBatch)
             setStats(data)
         } catch (err: any) {
-            Alert.alert('Error', err.message)
+            const userMsg =
+              err?.code?.startsWith('PGRST') ||
+              err?.code?.startsWith('42') ||
+              err?.code?.startsWith('23')
+                ? 'Something went wrong. Please try again.'
+                : err?.message ?? 'An unexpected error occurred.'
+            Alert.alert('Error', userMsg)
         } finally {
             setLoading(false)
         }
@@ -90,7 +96,13 @@ export function SubjectStatsScreen() {
         try {
             await Share.share({ message: reportText })
         } catch (err: any) {
-            Alert.alert('Error', err.message)
+            const userMsg =
+              err?.code?.startsWith('PGRST') ||
+              err?.code?.startsWith('42') ||
+              err?.code?.startsWith('23')
+                ? 'Something went wrong. Please try again.'
+                : err?.message ?? 'An unexpected error occurred.'
+            Alert.alert('Error', userMsg)
         }
     }
 

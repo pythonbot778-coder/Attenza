@@ -7,6 +7,7 @@ import {
 import { StackNavigationProp } from '@react-navigation/stack'
 import { RouteProp } from '@react-navigation/native'
 import { supabase } from '../../api/supabase'
+import { useAuthStore } from '../../store/authStore'
 import { COLORS } from '../../constants/colors'
 import { AuthStackParams } from '../../navigation/AuthNavigator'
 
@@ -24,7 +25,7 @@ export function PasswordSetupScreen({ navigation, route }: Props) {
   const [loading, setLoading] = useState(false)
 
   const isStrong = password.length >= 8
-  const isMatch = password === confirm && confirm.length > 0
+  const isMatch  = password === confirm && confirm.length > 0
 
   async function handleSetPassword() {
     if (!isStrong) {
@@ -41,12 +42,22 @@ export function PasswordSetupScreen({ navigation, route }: Props) {
     setLoading(false)
 
     if (error) {
-      Alert.alert('Error', error.message)
+      const userMsg =
+        error?.code?.startsWith('PGRST') ||
+        error?.code?.startsWith('42') ||
+        error?.code?.startsWith('23')
+          ? 'Something went wrong. Please try again.'
+          : error?.message ?? 'An unexpected error occurred.'
+      Alert.alert('Error', userMsg)
       return
     }
 
-    // Navigate to ProfileSetup
-    navigation.navigate('ProfileSetup')
+    // Password is set — advance the onboarding step.
+    // RootNavigator sees PASSWORD_SET and keeps user in AuthNavigator → ProfileSetup.
+    useAuthStore.getState().setUser({ authStep: 'PASSWORD_SET' })
+
+    // Use replace so back button can't return to PasswordSetup
+    navigation.replace('ProfileSetup')
   }
 
   return (
@@ -55,7 +66,6 @@ export function PasswordSetupScreen({ navigation, route }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.inner}>
-
         <View style={styles.header}>
           <Text style={styles.title}>Create Password</Text>
           <Text style={styles.subtitle}>
@@ -78,20 +88,16 @@ export function PasswordSetupScreen({ navigation, route }: Props) {
               autoCapitalize="none"
               editable={!loading}
             />
-            <TouchableOpacity
-              style={styles.eyeBtn}
-              onPress={() => setShowPass(p => !p)}
-            >
+            <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPass(p => !p)}>
               <Text style={styles.eyeText}>{showPass ? '🙈' : '👁'}</Text>
             </TouchableOpacity>
           </View>
-          {/* Strength indicator */}
           <View style={styles.strengthBar}>
             <View style={[
               styles.strengthFill,
               {
                 width: `${Math.min((password.length / 12) * 100, 100)}%`,
-                backgroundColor: password.length >= 8 ? COLORS.success : COLORS.warning
+                backgroundColor: password.length >= 8 ? COLORS.success : COLORS.warning,
               }
             ]} />
           </View>
@@ -114,10 +120,7 @@ export function PasswordSetupScreen({ navigation, route }: Props) {
               autoCapitalize="none"
               editable={!loading}
             />
-            <TouchableOpacity
-              style={styles.eyeBtn}
-              onPress={() => setShowConfirm(p => !p)}
-            >
+            <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowConfirm(p => !p)}>
               <Text style={styles.eyeText}>{showConfirm ? '🙈' : '👁'}</Text>
             </TouchableOpacity>
           </View>
@@ -128,7 +131,6 @@ export function PasswordSetupScreen({ navigation, route }: Props) {
           )}
         </View>
 
-        {/* Button */}
         <TouchableOpacity
           style={[styles.button, (!isStrong || !isMatch || loading) && styles.buttonDisabled]}
           onPress={handleSetPassword}
@@ -140,7 +142,6 @@ export function PasswordSetupScreen({ navigation, route }: Props) {
             : <Text style={styles.buttonText}>Set Password & Continue</Text>
           }
         </TouchableOpacity>
-
       </View>
     </KeyboardAvoidingView>
   )
@@ -150,72 +151,30 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   inner: { flex: 1, paddingHorizontal: 28, paddingTop: 80 },
   header: { marginBottom: 40 },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: COLORS.textSecondary,
-    lineHeight: 22,
-  },
-  emailText: {
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
+  title: { fontSize: 28, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 10 },
+  subtitle: { fontSize: 15, color: COLORS.textSecondary, lineHeight: 22 },
+  emailText: { color: COLORS.primary, fontWeight: '600' },
   fieldGroup: { marginBottom: 20 },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-    marginBottom: 8,
-  },
+  label: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 8 },
   inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row', alignItems: 'center',
     backgroundColor: COLORS.surface,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    borderRadius: 12,
+    borderWidth: 1.5, borderColor: COLORS.border, borderRadius: 12,
   },
-  input: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: COLORS.textPrimary,
-  },
+  input: { paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, color: COLORS.textPrimary },
   inputFlex: { flex: 1 },
   eyeBtn: { paddingHorizontal: 14 },
   eyeText: { fontSize: 18 },
   strengthBar: {
-    height: 4,
-    backgroundColor: COLORS.borderLight,
-    borderRadius: 2,
-    marginTop: 8,
-    overflow: 'hidden',
+    height: 4, backgroundColor: COLORS.borderLight,
+    borderRadius: 2, marginTop: 8, overflow: 'hidden',
   },
-  strengthFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
-  strengthText: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    marginTop: 4,
-  },
+  strengthFill: { height: '100%', borderRadius: 2 },
+  strengthText: { fontSize: 12, color: COLORS.textMuted, marginTop: 4 },
   button: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    paddingVertical: 15,
-    alignItems: 'center',
-    marginTop: 12,
+    backgroundColor: COLORS.primary, borderRadius: 12,
+    paddingVertical: 15, alignItems: 'center', marginTop: 12,
   },
   buttonDisabled: { opacity: 0.4 },
-  buttonText: {
-    color: COLORS.textOnPrimary,
-    fontSize: 16,
-    fontWeight: '700',
-  },
+  buttonText: { color: COLORS.textOnPrimary, fontSize: 16, fontWeight: '700' },
 })

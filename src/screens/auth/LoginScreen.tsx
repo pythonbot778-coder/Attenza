@@ -5,27 +5,25 @@ import {
   ActivityIndicator, Alert,
 } from 'react-native'
 import { StackNavigationProp } from '@react-navigation/stack'
-import { supabase } from '../../api/supabase'
-import { COLORS } from '../../constants/colors'
-import { AuthStackParams } from '../../navigation/AuthNavigator'
-import { useAuthStore } from '../../store/authStore'
-import { getClassByUser } from '../../api/classApi'
+import { supabase }            from '../../api/supabase'
+import { COLORS }              from '../../constants/colors'
+import { AuthStackParams }     from '../../navigation/AuthNavigator'
+import { hydrateAuthState }    from '../../store/authStore'
 
 type Props = {
   navigation: StackNavigationProp<AuthStackParams, 'Login'>
 }
 
 export function LoginScreen({ navigation }: Props) {
-  const { setUser } = useAuthStore()
-  const [email, setEmail] = useState('')
+  const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
-  const [mode, setMode] = useState<'password' | 'otp'>('password')
-  const [loading, setLoading] = useState(false)
+  const [mode,     setMode]     = useState<'password' | 'otp'>('password')
+  const [loading,  setLoading]  = useState(false)
 
   const isValidEmail = (e: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.toLowerCase())
 
-  // ── Password Login (returning users) ──────────────────────
+  // ── Password Login ────────────────────────────────────────
   async function handlePasswordLogin() {
     const trimmed = email.trim().toLowerCase()
     if (!isValidEmail(trimmed)) {
@@ -38,22 +36,28 @@ export function LoginScreen({ navigation }: Props) {
     }
 
     setLoading(true)
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: trimmed,
+    const { error } = await supabase.auth.signInWithPassword({
+      email:    trimmed,
       password: password,
     })
-    setLoading(false)
 
     if (error) {
-      Alert.alert('Login Failed', error.message)
+      setLoading(false)
+      Alert.alert(
+        'Login Failed',
+        error.message?.includes('Invalid login credentials')
+          ? 'Invalid email or password.'
+          : error.message ?? 'Login failed. Please try again.'
+      )
       return
     }
 
-    // Restore user session + role from DB
-    await restoreUserSession(data.user.id, data.user.email ?? '')
+    // Hydrate store — RootNavigator will route automatically based on role/profile
+    await hydrateAuthState()
+    setLoading(false)
   }
 
-  // ── OTP Login (new users / forgot password) ───────────────
+  // ── OTP Login ─────────────────────────────────────────────
   async function handleSendOTP() {
     const trimmed = email.trim().toLowerCase()
     if (!isValidEmail(trimmed)) {
@@ -63,68 +67,16 @@ export function LoginScreen({ navigation }: Props) {
 
     setLoading(true)
     const { error } = await supabase.auth.signInWithOtp({
-      email: trimmed,
+      email:   trimmed,
       options: { shouldCreateUser: true },
     })
     setLoading(false)
 
     if (error) {
-      Alert.alert('Error', error.message)
+      Alert.alert('Error', error.message ?? 'An unexpected error occurred.')
       return
     }
     navigation.navigate('OTP', { email: trimmed })
-  }
-
-  // ── Restore session after login ────────────────────────────
-  async function restoreUserSession(userId: string, email: string) {
-    try {
-      // Get user profile
-      const { data: userData } = await supabase
-        .from('users')
-        .select('name, mobile_number')
-        .eq('id', userId)
-        .maybeSingle()
-
-      if (!userData?.name) {
-        // New user — no profile yet → go to ProfileSetup
-        setUser({ userId, email, isAuthenticated: true, isLoading: false })
-        navigation.navigate('ProfileSetup')
-        return
-      }
-
-      // Get class + role
-      const classMember = await getClassByUser(userId)
-
-      if (!classMember) {
-        // Has profile but no class yet → go to ProfileSetup
-        setUser({ userId, email, name: userData.name, isAuthenticated: true, isLoading: false })
-        navigation.navigate('ProfileSetup')
-        return
-      }
-
-      const cg = classMember.class_groups as any
-
-      // Restore full session
-      setUser({
-        userId,
-        email,
-        name: userData.name,
-        rollNumber: classMember.roll_number,
-        isAuthenticated: true,
-        isLoading: false,
-        branch: cg.branch,
-        year: cg.year,
-        semester: cg.semester,
-        section: cg.section,
-        classId: classMember.class_id,
-        role: classMember.role as any,
-      })
-
-      // Navigate based on role (handled automatically by RootNavigator when role is set)
-
-    } catch (err: any) {
-      Alert.alert('Error restoring session', err.message)
-    }
   }
 
   return (
@@ -133,11 +85,9 @@ export function LoginScreen({ navigation }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.inner}>
-
-        {/* Logo */}
         <View style={styles.header}>
           <Text style={styles.logo}>Attenza</Text>
-          <Text style={styles.tagline}>Student-led attendance, simplified.</Text>
+          <Text style={styles.tagline}>Attendance that syncs, simplified.</Text>
         </View>
 
         {/* Mode Toggle */}
@@ -167,7 +117,7 @@ export function LoginScreen({ navigation }: Props) {
             style={styles.input}
             value={email}
             onChangeText={setEmail}
-            placeholder="yourname@svce.edu.in"
+            placeholder="yourname@college.edu"
             placeholderTextColor={COLORS.textMuted}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -200,16 +150,13 @@ export function LoginScreen({ navigation }: Props) {
             {loading
               ? <ActivityIndicator color={COLORS.textOnPrimary} />
               : <Text style={styles.buttonText}>
-                {mode === 'password' ? 'Login' : 'Send OTP'}
-              </Text>
+                  {mode === 'password' ? 'Login' : 'Send OTP'}
+                </Text>
             }
           </TouchableOpacity>
 
           {mode === 'password' && (
-            <TouchableOpacity
-              style={styles.forgotBtn}
-              onPress={() => setMode('otp')}
-            >
+            <TouchableOpacity style={styles.forgotBtn} onPress={() => setMode('otp')}>
               <Text style={styles.forgotText}>
                 Forgot password? Use Email OTP instead
               </Text>
@@ -222,7 +169,6 @@ export function LoginScreen({ navigation }: Props) {
             ? 'A 6-digit code will be sent to your email.'
             : 'New user? Switch to Email OTP to register.'}
         </Text>
-
       </View>
     </KeyboardAvoidingView>
   )
@@ -230,48 +176,30 @@ export function LoginScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  inner: {
-    flex: 1, justifyContent: 'center', paddingHorizontal: 28,
-  },
-  header: { marginBottom: 36, alignItems: 'center' },
-  logo: {
-    fontSize: 42, fontWeight: '800',
-    color: COLORS.primary, letterSpacing: -1,
-  },
-  tagline: { fontSize: 15, color: COLORS.textSecondary, marginTop: 6 },
-  modeRow: {
-    flexDirection: 'row', gap: 10, marginBottom: 24,
-  },
+  inner:     { flex: 1, justifyContent: 'center', paddingHorizontal: 28 },
+  header:    { marginBottom: 36, alignItems: 'center' },
+  logo:      { fontSize: 42, fontWeight: '800', color: COLORS.primary, letterSpacing: -1 },
+  tagline:   { fontSize: 15, color: COLORS.textSecondary, marginTop: 6 },
+  modeRow:   { flexDirection: 'row', gap: 10, marginBottom: 24 },
   modeBtn: {
     flex: 1, paddingVertical: 11, borderRadius: 12,
     borderWidth: 1.5, borderColor: COLORS.border,
     backgroundColor: COLORS.surface, alignItems: 'center',
   },
-  modeBtnActive: {
-    backgroundColor: COLORS.primary, borderColor: COLORS.primary,
-  },
-  modeBtnText: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
+  modeBtnActive:     { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  modeBtnText:       { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
   modeBtnTextActive: { color: COLORS.textOnPrimary },
-  form: { gap: 6 },
-  label: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 6 },
+  form:      { gap: 6 },
+  label:     { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 6 },
   input: {
-    backgroundColor: COLORS.surface, borderWidth: 1.5,
-    borderColor: COLORS.border, borderRadius: 12,
-    paddingHorizontal: 16, paddingVertical: 14,
+    backgroundColor: COLORS.surface, borderWidth: 1.5, borderColor: COLORS.border,
+    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
     fontSize: 16, color: COLORS.textPrimary,
   },
-  button: {
-    backgroundColor: COLORS.primary, borderRadius: 12,
-    paddingVertical: 15, alignItems: 'center', marginTop: 16,
-  },
+  button:         { backgroundColor: COLORS.primary, borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 16 },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: {
-    color: COLORS.textOnPrimary, fontSize: 16, fontWeight: '700',
-  },
-  forgotBtn: { alignItems: 'center', marginTop: 14 },
-  forgotText: { color: COLORS.primary, fontSize: 13, fontWeight: '600' },
-  footer: {
-    textAlign: 'center', color: COLORS.textMuted,
-    fontSize: 13, marginTop: 24,
-  },
+  buttonText:     { color: COLORS.textOnPrimary, fontSize: 16, fontWeight: '700' },
+  forgotBtn:      { alignItems: 'center', marginTop: 14 },
+  forgotText:     { color: COLORS.primary, fontSize: 13, fontWeight: '600' },
+  footer:         { textAlign: 'center', color: COLORS.textMuted, fontSize: 13, marginTop: 24 },
 })

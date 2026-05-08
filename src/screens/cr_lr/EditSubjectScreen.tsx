@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, Alert, ActivityIndicator,
@@ -19,6 +19,7 @@ export function EditSubjectScreen() {
   const navigation = useNavigation<EditNav>()
 
   const { subjectId, subjectName, facultyName, type } = route.params
+  const isMutating = useRef(false)
 
   const [name, setName] = useState(subjectName)
   const [faculty, setFaculty] = useState(facultyName)
@@ -29,13 +30,22 @@ export function EditSubjectScreen() {
     if (!name.trim()) { Alert.alert('Required', 'Enter subject name.'); return }
     if (!faculty.trim()) { Alert.alert('Required', 'Enter faculty name.'); return }
 
+    if (isMutating.current) return
+    isMutating.current = true
     setSaving(true)
     try {
       await updateSubject(subjectId, name, faculty)
       navigation.goBack()
     } catch (err: any) {
-      Alert.alert('Error', err.message)
+      const userMsg =
+        err?.code?.startsWith('PGRST') ||
+        err?.code?.startsWith('42') ||
+        err?.code?.startsWith('23')
+          ? 'Something went wrong. Please try again.'
+          : err?.message ?? 'An unexpected error occurred.'
+      Alert.alert('Error', userMsg)
     } finally {
+      isMutating.current = false
       setSaving(false)
     }
   }
@@ -49,13 +59,22 @@ export function EditSubjectScreen() {
         {
           text: 'Delete', style: 'destructive',
           onPress: async () => {
+            if (isMutating.current) return
+            isMutating.current = true
             setDeleting(true)
             try {
               await deleteSubject(subjectId)
               navigation.popToTop()
             } catch (err: any) {
-              Alert.alert('Error', err.message)
+              const userMsg =
+                err?.code?.startsWith('PGRST') ||
+                err?.code?.startsWith('42') ||
+                err?.code?.startsWith('23')
+                  ? 'Something went wrong. Please try again.'
+                  : err?.message ?? 'An unexpected error occurred.'
+              Alert.alert('Error', userMsg)
             } finally {
+              isMutating.current = false
               setDeleting(false)
             }
           },

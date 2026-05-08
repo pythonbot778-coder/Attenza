@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react'
 import {
     View, Text, StyleSheet, TouchableOpacity,
     ScrollView, Alert, ActivityIndicator,
-    useWindowDimensions, FlatList, Switch,
+    useWindowDimensions, FlatList, Switch, TextInput,
 } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { TabView, SceneMap } from 'react-native-tab-view'
 import { COLORS } from '../../constants/colors'
 import { useAuthStore } from '../../store/authStore'
@@ -12,24 +13,60 @@ import { getClassMembers, ClassMemberRow } from '../../api/membersApi'
 import { getDisplayRoll } from '../../utils/rollNumberUtils'
 import { initiateRoleTransfer } from '../../api/roleTransferApi'
 import { getShowNames, setShowNames } from '../../utils/attendancePrefs'
-
+import { useNavigation } from '@react-navigation/native'
 // ─── Profile Tab ──────────────────────────────────────────────
 function ProfileTab() {
     const {
-        name, email, rollNumber, role, branch,
+        userId, name, email, rollNumber, role, branch,
         year, semester, section,
     } = useAuthStore()
     const [signingOut, setSigningOut] = useState(false)
+    const navigation = useNavigation<any>()
+    // ── Name editing ──
+    const [editingName, setEditingName] = useState(false)
+    const [savingName, setSavingName] = useState(false)
+    const [draftName, setDraftName] = useState(name ?? '')
 
     // ── Name display preference toggle ──
     const [showNames, setShowNamesState] = useState(true)
     const [prefsLoading, setPrefsLoading] = useState(true)
 
     useEffect(() => {
+        setDraftName(name ?? '')
+    }, [name])
+
+    useEffect(() => {
         getShowNames()
             .then(val => setShowNamesState(val))
             .finally(() => setPrefsLoading(false))
     }, [])
+
+    async function handleSaveName() {
+        const normalizedName = draftName.trim()
+        if (!normalizedName) {
+            Alert.alert('Error', 'Name cannot be empty.')
+            return
+        }
+        if (!userId) return Alert.alert('Error', 'No user session found.')
+
+        try {
+            setSavingName(true)
+            const { error } = await supabase
+                .from('users')
+                .update({ name: normalizedName })
+                .eq('id', userId)
+
+            if (error) throw error
+
+            useAuthStore.getState().setUser({ name: normalizedName })
+            setEditingName(false)
+            Alert.alert('Saved', 'Name updated successfully.')
+        } catch (e: any) {
+            Alert.alert('Save Failed', e?.message ?? 'Unable to update name.')
+        } finally {
+            setSavingName(false)
+        }
+    }
 
     async function handleToggleNames(val: boolean) {
         setShowNamesState(val)
@@ -75,7 +112,55 @@ function ProfileTab() {
                             : '??'}
                     </Text>
                 </View>
-                <Text style={styles.profileName}>{name ?? '—'}</Text>
+                {editingName ? (
+                    <View style={styles.nameEditWrap}>
+                        <TextInput
+                            style={styles.nameInput}
+                            value={draftName}
+                            onChangeText={setDraftName}
+                            placeholder="Enter your name"
+                            placeholderTextColor={COLORS.textMuted}
+                            autoCapitalize="words"
+                            maxLength={80}
+                        />
+                        <View style={styles.nameActions}>
+                            <TouchableOpacity
+                                style={styles.nameCancelBtn}
+                                onPress={() => {
+                                    setDraftName(name ?? '')
+                                    setEditingName(false)
+                                }}
+                                activeOpacity={0.85}
+                            >
+                                <Text style={styles.nameCancelText}>Cancel</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.nameSaveBtn}
+                                onPress={handleSaveName}
+                                disabled={savingName}
+                                activeOpacity={0.85}
+                            >
+                                {savingName ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.nameSaveText}>Save</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                ) : (
+                    <View style={styles.nameRow}>
+                        <Text style={styles.profileName}>{name ?? '—'}</Text>
+                        <TouchableOpacity
+                            onPress={() => setEditingName(true)}
+                            style={styles.editBtn}
+                            activeOpacity={0.85}
+                        >
+                            <Ionicons name="pencil" size={16} color="#fff" />
+                        </TouchableOpacity>
+                    </View>
+                )}
                 <View style={[styles.roleBadge,
                 { backgroundColor: role === 'CR' ? COLORS.crColor : COLORS.lrColor }]}>
                     <Text style={styles.roleBadgeText}>{role}</Text>
@@ -123,6 +208,29 @@ function ProfileTab() {
                 </View>
             </View>
 
+            {/* Help */}
+            <View style={styles.card}>
+                <Text style={styles.cardTitle}>Help</Text>
+                <TouchableOpacity
+                    style={styles.supportRow}
+                    onPress={() => navigation.navigate('SupportSuggestions')}
+                    activeOpacity={0.85}
+                >
+                    <View style={styles.supportLeft}>
+                        <View style={styles.supportIconWrap}>
+                            <Ionicons name="chatbubble-ellipses-outline" size={18} color={COLORS.primary} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.supportTitle}>Support & Suggestions</Text>
+                            <Text style={styles.supportSub}>
+                                Report issues or share ideas to improve the app
+                            </Text>
+                        </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+            </View>
+
             {/* Sign Out */}
             <TouchableOpacity
                 style={[styles.signOutBtn, signingOut && { opacity: 0.6 }]}
@@ -153,7 +261,13 @@ function ClassMembersTab() {
             const data = await getClassMembers(classId)
             setMembers(data)
         } catch (e: any) {
-            Alert.alert('Error', e.message)
+            const userMsg =
+              e?.code?.startsWith('PGRST') ||
+              e?.code?.startsWith('42') ||
+              e?.code?.startsWith('23')
+                ? 'Something went wrong. Please try again.'
+                : e?.message ?? 'An unexpected error occurred.'
+            Alert.alert('Error', userMsg)
         } finally {
             setLoading(false)
         }
@@ -190,7 +304,13 @@ function ClassMembersTab() {
                             })
                             Alert.alert('Request Sent', `A role transfer request for ${targetRole} has been sent to ${member.name}.`)
                         } catch (e: any) {
-                            Alert.alert('Error', e.message)
+                            const userMsg =
+                              e?.code?.startsWith('PGRST') ||
+                              e?.code?.startsWith('42') ||
+                              e?.code?.startsWith('23')
+                                ? 'Something went wrong. Please try again.'
+                                : e?.message ?? 'An unexpected error occurred.'
+                            Alert.alert('Error', userMsg)
                         }
                     }
                 }
@@ -386,4 +506,86 @@ const styles = StyleSheet.create({
     memberNotJoined: { fontSize: 13, fontWeight: '400', color: COLORS.textMuted, marginTop: 2, fontStyle: 'italic' },
     memberRoleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
     memberRoleBadgeText: { fontSize: 11, fontWeight: '800', color: '#fff' },
+
+    nameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    editBtn: {
+        padding: 6,
+        borderRadius: 999,
+        backgroundColor: COLORS.primary,
+    },
+    nameEditWrap: {
+        width: '100%',
+        gap: 10,
+        alignItems: 'center',
+        marginBottom: 6,
+    },
+    nameInput: {
+        width: '100%',
+        backgroundColor: COLORS.surface,
+        borderWidth: 1.5,
+        borderColor: COLORS.border,
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        fontSize: 16,
+        color: COLORS.textPrimary,
+    },
+    nameActions: {
+        flexDirection: 'row',
+        gap: 10,
+        width: '100%',
+    },
+    nameCancelBtn: {
+        flex: 1,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        paddingVertical: 12,
+        alignItems: 'center',
+        backgroundColor: COLORS.surface,
+    },
+    nameCancelText: { color: COLORS.textPrimary, fontWeight: '700' },
+    nameSaveBtn: {
+        flex: 1,
+        borderRadius: 12,
+        paddingVertical: 12,
+        alignItems: 'center',
+        backgroundColor: COLORS.primary,
+    },
+    nameSaveText: { color: '#fff', fontWeight: '700' },
+
+    supportRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 4,
+    },
+    supportLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        flex: 1,
+    },
+    supportIconWrap: {
+        width: 38,
+        height: 38,
+        borderRadius: 10,
+        backgroundColor: COLORS.primary + '15',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    supportTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: COLORS.textPrimary,
+    },
+    supportSub: {
+        marginTop: 2,
+        fontSize: 12,
+        color: COLORS.textSecondary,
+    },
 })

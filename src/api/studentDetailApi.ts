@@ -9,9 +9,10 @@ export interface StudentSubjectSession {
 }
 
 export async function getStudentSubjectSessions(
-  userId: string,
+  userId:    string,
   subjectId: string
 ): Promise<StudentSubjectSession[]> {
+  // Step 1: resolve this user's class_member record
   const { data: member, error: memberError } = await supabase
     .from('class_members')
     .select('id, class_id')
@@ -20,12 +21,14 @@ export async function getStudentSubjectSessions(
     .maybeSingle()
 
   if (memberError) throw memberError
-  if (!member) throw new Error('Member not found')
+  if (!member)     throw new Error('Member not found')
 
+  // Step 2: fetch sessions for this subject + this class
+  // is_edited column now exists (added by ChatGPT migration)
   const { data, error } = await supabase
     .from('attendance_sessions')
     .select(`
-      id, date_selected, batch_name,
+      id, date_selected, batch_name, is_edited,
       attendance_records ( status, class_member_id )
     `)
     .eq('class_id', member.class_id)
@@ -43,7 +46,7 @@ export async function getStudentSubjectSessions(
       date_selected: s.date_selected,
       batch_name:    s.batch_name,
       status:        (myRecord?.status ?? 'absent') as 'present' | 'absent',
-      is_edited:     false,   // column removed from schema — kept in interface for UI compat
+      is_edited:     s.is_edited ?? false,
     }
   })
 }

@@ -29,7 +29,13 @@ export function AdminUsersScreen() {
             setUsers(data)
             setFiltered(data)
         } catch (e: any) {
-            Alert.alert('Error', e.message)
+            const userMsg =
+              e?.code?.startsWith('PGRST') ||
+              e?.code?.startsWith('42') ||
+              e?.code?.startsWith('23')
+                ? 'Something went wrong. Please try again.'
+                : e?.message ?? 'An unexpected error occurred.'
+            Alert.alert('Error', userMsg)
         } finally {
             setLoading(false)
             setRefreshing(false)

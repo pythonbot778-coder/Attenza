@@ -80,7 +80,13 @@ export function SessionDetailScreen() {
             })
             setAttendance(init)
         } catch (err: any) {
-            Alert.alert('Error', err.message)
+            const userMsg =
+              err?.code?.startsWith('PGRST') ||
+              err?.code?.startsWith('42') ||
+              err?.code?.startsWith('23')
+                ? 'Something went wrong. Please try again.'
+                : err?.message ?? 'An unexpected error occurred.'
+            Alert.alert('Error', userMsg)
         } finally {
             setLoading(false)
         }
@@ -129,7 +135,13 @@ export function SessionDetailScreen() {
             await loadDetail()
             Alert.alert('✅ Updated', 'Attendance updated successfully.')
         } catch (err: any) {
-            Alert.alert('Error', err.message)
+            const userMsg =
+              err?.code?.startsWith('PGRST') ||
+              err?.code?.startsWith('42') ||
+              err?.code?.startsWith('23')
+                ? 'Something went wrong. Please try again.'
+                : err?.message ?? 'An unexpected error occurred.'
+            Alert.alert('Error', userMsg)
         } finally {
             setSaving(false)
         }
@@ -164,7 +176,13 @@ export function SessionDetailScreen() {
         try {
             await Share.share({ message: buildShareText() })
         } catch (err: any) {
-            Alert.alert('Error', err.message)
+            const userMsg =
+              err?.code?.startsWith('PGRST') ||
+              err?.code?.startsWith('42') ||
+              err?.code?.startsWith('23')
+                ? 'Something went wrong. Please try again.'
+                : err?.message ?? 'An unexpected error occurred.'
+            Alert.alert('Error', userMsg)
         }
     }
 

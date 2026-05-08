@@ -10,12 +10,14 @@ import { AttendanceSession } from './models/AttendanceSession'
 import { AttendanceRecord } from './models/AttendanceRecord'
 import { SyncLog } from './models/SyncLog'
 
+import { logger } from '../utils/logger'
+
 const adapter = new SQLiteAdapter({
   schema: dbSchema,
   dbName: 'attenza',
   jsi: true,               // faster JS interface
   onSetUpError: (error) => {
-    console.error('WatermelonDB setup error:', error)
+      logger.error('WatermelonDB setup error:', error)
   }
 })
 

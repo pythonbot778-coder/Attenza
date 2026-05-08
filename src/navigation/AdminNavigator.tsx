@@ -1,16 +1,18 @@
 import React from 'react'
 import { View, StyleSheet, Platform } from 'react-native'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
-import { createStackNavigator }     from '@react-navigation/stack'
-import { Ionicons }                 from '@expo/vector-icons'
-import { COLORS }                   from '../constants/colors'
+import { createStackNavigator } from '@react-navigation/stack'
+import { Ionicons } from '@expo/vector-icons'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { COLORS } from '../constants/colors'
 
 import { AdminDashboardScreen } from '../screens/admin/AdminDashboardScreen'
-import { AdminClassesScreen }   from '../screens/admin/AdminClassesScreen'
+import { AdminClassesScreen } from '../screens/admin/AdminClassesScreen'
 import { AdminClassDetailScreen } from '../screens/admin/AdminClassDetailScreen'
 import { AdminTransfersScreen } from '../screens/admin/AdminTransfersScreen'
-import { AdminLogsScreen }      from '../screens/admin/AdminLogsScreen'
-import { AdminUsersScreen }     from '../screens/admin/AdminUsersScreen'
+import { AdminLogsScreen } from '../screens/admin/AdminLogsScreen'
+import { AdminUsersScreen } from '../screens/admin/AdminUsersScreen'
+import { AdminSupportSuggestionsScreen } from '../screens/admin/AdminSupportSuggestionsScreen'
 
 export type AdminClassStackParams = {
   AdminClassesList: undefined
@@ -40,11 +42,20 @@ function TabIcon({ name, focused }: { name: keyof typeof Ionicons.glyphMap; focu
 }
 
 export function AdminNavigator() {
+  const insets = useSafeAreaInsets()
+
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: {
+          backgroundColor: COLORS.surface,
+          borderTopColor: COLORS.border,
+          borderTopWidth: 1,
+          height: Platform.OS === 'ios' ? 40 + insets.bottom : 50 + Math.max(insets.bottom, 6),
+          paddingBottom: Platform.OS === 'ios' ? insets.bottom : Math.max(insets.bottom, 6),
+          paddingTop: 6,
+        },
         tabBarShowLabel: false,
       }}
     >
@@ -69,6 +80,11 @@ export function AdminNavigator() {
         options={{ tabBarIcon: ({ focused }) => <TabIcon name={focused ? 'swap-horizontal' : 'swap-horizontal-outline'} focused={focused} /> }}
       />
       <Tab.Screen
+        name="AdminSupport"
+        component={AdminSupportSuggestionsScreen}
+        options={{ tabBarIcon: ({ focused }) => <TabIcon name={focused ? 'chatbubbles' : 'chatbubbles-outline'} focused={focused} /> }}
+      />
+      <Tab.Screen
         name="AdminLogs"
         component={AdminLogsScreen}
         options={{ tabBarIcon: ({ focused }) => <TabIcon name={focused ? 'document-text' : 'document-text-outline'} focused={focused} /> }}
@@ -78,19 +94,6 @@ export function AdminNavigator() {
 }
 
 const styles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: COLORS.surface,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    height: Platform.OS === 'ios' ? 80 : 58,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 4,
-    paddingTop: 6,
-    elevation: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-  },
   iconWrap: { alignItems: 'center', justifyContent: 'center', gap: 4 },
   dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.primary },
 })

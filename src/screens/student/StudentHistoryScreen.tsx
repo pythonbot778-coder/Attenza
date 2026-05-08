@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react'
 import {
     View, Text, StyleSheet, FlatList,
-    ActivityIndicator, RefreshControl, TouchableOpacity,
+    ActivityIndicator, RefreshControl, TouchableOpacity, Alert,
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import { Ionicons } from '@expo/vector-icons'
@@ -83,8 +83,14 @@ export function StudentHistoryScreen() {
         try {
             const data = await getSessionHistory(classId)
             setSessions(data)
-        } catch (e) {
-            console.log('history load error', e)
+        } catch (e: any) {
+            const userMsg =
+              e?.code?.startsWith('PGRST') ||
+              e?.code?.startsWith('42') ||
+              e?.code?.startsWith('23')
+                ? 'Something went wrong. Please try again.'
+                : e?.message ?? 'An unexpected error occurred.'
+            Alert.alert('Error', userMsg)
         } finally {
             setLoading(false)
             setRefreshing(false)

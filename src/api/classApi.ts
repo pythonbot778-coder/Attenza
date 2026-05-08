@@ -2,16 +2,16 @@ import { supabase } from './supabase'
 import { generateRollRange } from '../utils/rollNumberUtils'
 
 export interface CreateClassPayload {
-  userId:    string
-  branch:    string
-  year:      number
-  semester:  number
-  section:   string
+  userId: string
+  branch: string
+  year: number
+  semester: number
+  section: string
   startRoll: string
-  endRoll:   string
-  role:      'CR' | 'LR'
-  userName:  string
-  userRoll:  string
+  endRoll: string
+  role: 'CR' | 'LR'
+  userName: string
+  userRoll: string
 }
 
 export async function createClassWithMembers(payload: CreateClassPayload) {
@@ -24,10 +24,10 @@ export async function createClassWithMembers(payload: CreateClassPayload) {
   const { data: existing } = await supabase
     .from('class_groups')
     .select('id, start_roll, end_roll')
-    .eq('branch',   branch)
-    .eq('year',     year)
+    .eq('branch', branch)
+    .eq('year', year)
     .eq('semester', semester)
-    .eq('section',  section)
+    .eq('section', section)
     .maybeSingle()
 
   let classId: string
@@ -60,7 +60,7 @@ export async function createClassWithMembers(payload: CreateClassPayload) {
       .insert({
         branch, year, semester, section,
         start_roll: startRoll,
-        end_roll:   endRoll,
+        end_roll: endRoll,
         created_by: userId,
       })
       .select('id')
@@ -70,62 +70,24 @@ export async function createClassWithMembers(payload: CreateClassPayload) {
     classId = newClass.id
 
     // Step 3 — Bulk insert all ClassMembers as STUDENT with user_id = null
-    const rolls   = generateRollRange(startRoll, endRoll)
-    const members = rolls.map((roll) => ({
-      class_id:    classId,
-      roll_number: roll,
-      name:        null,
-      role:        'STUDENT',
-      status:      'active',
-      user_id:     null,
-    }))
-
+    const rolls = generateRollRange(startRoll, endRoll)
     const { error: membersError } = await supabase
-      .from('class_members')
-      .insert(members)
-
+      .rpc('create_class_member_placeholders', {
+        p_class_id: classId,
+        p_roll_numbers: rolls,
+      })
     if (membersError) throw membersError
   }
 
-  // Step 4 — Claim the CR/LR's own row by roll number
-  // First try to update the existing unclaimed row
-  const { data: memberRow, error: fetchError } = await supabase
-    .from('class_members')
-    .select('id')
-    .eq('class_id',    classId)
-    .eq('roll_number', userRoll)
-    .maybeSingle()
-
-  if (fetchError) throw fetchError
-
-  if (memberRow) {
-    // Row exists — update it to claim as CR/LR
-    const { error: updateError } = await supabase
-      .from('class_members')
-      .update({
-        user_id: userId,
-        name:    userName,
-        role:    role,
-        status:  'active',
-      })
-      .eq('id', memberRow.id)
-
-    if (updateError) throw updateError
-  } else {
-    // Roll number was not in the range — insert a new CR/LR row
-    const { error: insertError } = await supabase
-      .from('class_members')
-      .insert({
-        class_id:    classId,
-        roll_number: userRoll,
-        user_id:     userId,
-        name:        userName,
-        role:        role,
-        status:      'active',
-      })
-
-    if (insertError) throw insertError
-  }
+  // Step 4 — Claim the CR/LR's own row via RPC (bypasses RLS)
+  const { error: claimError } = await supabase.rpc('claim_class_member_row', {
+    p_class_id: classId,
+    p_roll_number: userRoll,
+    p_user_id: userId,
+    p_name: userName,
+    p_role: role,
+  })
+  if (claimError) throw claimError
 
   return { error: null, classId, message: 'success' }
 }
@@ -143,7 +105,7 @@ export async function getClassByUser(userId: string) {
       )
     `)
     .eq('user_id', userId)
-    .eq('status',  'active')
+    .eq('status', 'active')
     .maybeSingle()
 
   if (error) throw error

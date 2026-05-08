@@ -21,7 +21,7 @@ export async function getMembersForClass(classId: string): Promise<ClassMember[]
         .from('class_members')
         .select('id, roll_number, name')
         .eq('class_id', classId)
-        .eq('status', 'active')
+        .in('status', ['active', 'inactive'])  // ✅ include placeholder students
         .order('roll_number', { ascending: true })
 
     if (error) throw error
@@ -44,12 +44,12 @@ export async function saveAttendanceSession(payload: SaveAttendancePayload) {
         .from('attendance_sessions')
         .upsert(
             {
-                subject_id: subjectId,
-                class_id: classId,
-                batch_name: batchName,
+                subject_id:    subjectId,
+                class_id:      classId,
+                batch_name:    batchName,
                 date_selected: dateSelected,
-                taken_by: takenBy,
-                taken_at: new Date().toISOString(),
+                taken_by:      takenBy,
+                taken_at:      new Date().toISOString(),
             },
             { onConflict: 'class_id,subject_id,date_selected,batch_name' }
         )
@@ -66,9 +66,9 @@ export async function saveAttendanceSession(payload: SaveAttendancePayload) {
 
     // Insert fresh records
     const rows = records.map((r) => ({
-        session_id: session.id,
+        session_id:      session.id,
         class_member_id: r.classMemberId,
-        status: r.status,
+        status:          r.status,
     }))
 
     const { error: recError } = await supabase
@@ -83,12 +83,12 @@ export async function getAttendanceHistory(classId: string) {
     const { data, error } = await supabase
         .from('attendance_sessions')
         .select(`
-      id, date_selected, batch_name,
-      subjects ( id, name, faculty_name, type ),
-      attendance_records ( id, status, class_member_id,
-        class_members ( roll_number, name )
-      )
-    `)
+            id, date_selected, batch_name,
+            subjects ( id, name, faculty_name, type ),
+            attendance_records ( id, status, class_member_id,
+                class_members ( roll_number, name )
+            )
+        `)
         .eq('class_id', classId)
         .order('date_selected', { ascending: false })
 

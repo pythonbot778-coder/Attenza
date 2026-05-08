@@ -111,7 +111,13 @@ export function HistoryScreen() {
             const data = await getSessionHistory(classId)
             setSessions(data)
         } catch (err: any) {
-            Alert.alert('Error', err.message)
+            const userMsg =
+              err?.code?.startsWith('PGRST') ||
+              err?.code?.startsWith('42') ||
+              err?.code?.startsWith('23')
+                ? 'Something went wrong. Please try again.'
+                : err?.message ?? 'An unexpected error occurred.'
+            Alert.alert('Error', userMsg)
         } finally {
             setLoading(false)
         }

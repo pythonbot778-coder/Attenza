@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useState, useRef } from 'react'
 import {
     View, Text, StyleSheet, FlatList,
     TouchableOpacity, ActivityIndicator, Alert, RefreshControl,
@@ -26,6 +26,7 @@ export function AdminTransfersScreen() {
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
     const [approving, setApproving] = useState<string | null>(null)
+    const isMutating = useRef(false)
 
     async function load(refresh = false) {
         if (refresh) setRefreshing(true)
@@ -33,7 +34,13 @@ export function AdminTransfersScreen() {
         try {
             setTransfers(await getAllTransfers())
         } catch (e: any) {
-            Alert.alert('Error', e.message)
+            const userMsg =
+              e?.code?.startsWith('PGRST') ||
+              e?.code?.startsWith('42') ||
+              e?.code?.startsWith('23')
+                ? 'Something went wrong. Please try again.'
+                : e?.message ?? 'An unexpected error occurred.'
+            Alert.alert('Error', userMsg)
         } finally {
             setLoading(false)
             setRefreshing(false)
@@ -51,13 +58,22 @@ export function AdminTransfersScreen() {
                 {
                     text: 'Approve', style: 'default',
                     onPress: async () => {
+                        if (isMutating.current) return
+                        isMutating.current = true
                         setApproving(item.id)
                         try {
                             await adminApproveTransfer(item.id)
                             await load()
                         } catch (e: any) {
-                            Alert.alert('Error', e.message)
+                            const userMsg =
+                              e?.code?.startsWith('PGRST') ||
+                              e?.code?.startsWith('42') ||
+                              e?.code?.startsWith('23')
+                                ? 'Something went wrong. Please try again.'
+                                : e?.message ?? 'An unexpected error occurred.'
+                            Alert.alert('Error', userMsg)
                         } finally {
+                            isMutating.current = false
                             setApproving(null)
                         }
                     },
