@@ -8,7 +8,10 @@ import {
   ActivityIndicator,
   TextInput,
   ScrollView,
+  Image,
 } from 'react-native'
+import * as ImagePicker from 'expo-image-picker'
+import { decode } from 'base64-arraybuffer'
 import { Ionicons } from '@expo/vector-icons'
 import { COLORS } from '../../constants/colors'
 import { useAuthStore } from '../../store/authStore'
@@ -27,12 +30,14 @@ export function StudentProfileScreen() {
     semester,
     section,
     rollNumber,
+    avatarUrl,
     reset,
   } = useAuthStore()
 
   const [signingOut, setSigningOut] = useState(false)
   const [editingName, setEditingName] = useState(false)
   const [savingName, setSavingName] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [draftName, setDraftName] = useState(name ?? '')
   const navigation = useNavigation<any>()
 
@@ -62,6 +67,75 @@ export function StudentProfileScreen() {
       Alert.alert('Save Failed', e?.message ?? 'Unable to update name.')
     } finally {
       setSavingName(false)
+    }
+  }
+
+  async function handlePickAvatar() {
+    if (!userId) {
+      Alert.alert('Error', 'No user session found.')
+      return
+    }
+
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (!permission.granted) {
+        Alert.alert('Permission Required', 'Please allow gallery access to upload a profile photo.')
+        return
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: true,
+      })
+
+      if (result.canceled || !result.assets?.length) return
+
+      const asset = result.assets[0]
+      if (!asset.base64) {
+        Alert.alert('Upload Failed', 'Could not read selected image.')
+        return
+      }
+
+      setUploadingAvatar(true)
+
+      const ext =
+        asset.mimeType?.includes('png') ? 'png' :
+        asset.mimeType?.includes('webp') ? 'webp' : 'jpg'
+
+      const filePath = `${userId}/avatar_${Date.now()}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('profilepics')
+        .upload(filePath, decode(asset.base64), {
+          contentType: asset.mimeType ?? 'image/jpeg',
+          upsert: true,
+        })
+
+      if (uploadError) throw uploadError
+
+      const { data: publicUrlData } = supabase.storage
+        .from('profilepics')
+        .getPublicUrl(filePath)
+
+      const publicUrl = publicUrlData.publicUrl
+
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ avatar_url: publicUrl })
+        .eq('id', userId)
+
+      if (updateError) throw updateError
+
+      useAuthStore.getState().setUser({ avatarUrl: publicUrl })
+
+      Alert.alert('Success', 'Profile photo updated successfully.')
+    } catch (e: any) {
+      Alert.alert('Upload Failed', e?.message ?? 'Unable to upload profile photo.')
+    } finally {
+      setUploadingAvatar(false)
     }
   }
 
@@ -103,6 +177,14 @@ export function StudentProfileScreen() {
     )
   }
 
+  const initials =
+    name
+      ?.split(' ')
+      .map((part) => part[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() ?? '?'
+
   return (
     <ScrollView
       style={styles.container}
@@ -116,11 +198,30 @@ export function StudentProfileScreen() {
       </View>
 
       <View style={styles.avatarSection}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {name?.charAt(0)?.toUpperCase() ?? '?'}
-          </Text>
-        </View>
+        <TouchableOpacity
+          style={styles.avatarWrap}
+          onPress={handlePickAvatar}
+          activeOpacity={0.85}
+          disabled={uploadingAvatar}
+        >
+          <View style={styles.avatar}>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarText}>{initials}</Text>
+            )}
+          </View>
+
+          <View style={styles.cameraBadge}>
+            {uploadingAvatar ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Ionicons name="camera" size={14} color="#fff" />
+            )}
+          </View>
+        </TouchableOpacity>
+
+        <Text style={styles.avatarHint}>Tap photo to change</Text>
 
         {editingName ? (
           <View style={styles.nameEditWrap}>
@@ -276,20 +377,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 28,
   },
+  avatarWrap: {
+    position: 'relative',
+    marginBottom: 8,
+  },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 92,
+    height: 92,
+    borderRadius: 46,
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: {
     fontSize: 32,
     fontWeight: '900',
     color: '#fff',
   },
+  cameraBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.background,
+  },
+  avatarHint: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginBottom: 10,
+  },
+
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',

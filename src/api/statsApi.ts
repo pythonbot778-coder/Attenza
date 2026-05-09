@@ -16,7 +16,6 @@ export interface SubjectStats {
     percent:       number
     is_edited:     boolean
   }[]
-  // Per-student stats
   studentStats: {
     roll_number:   string
     name:          string | null
@@ -31,7 +30,6 @@ export async function getSubjectStats(
   subjectId: string,
   batchName?: string | null
 ): Promise<SubjectStats> {
-  // Get all sessions for this subject
   let query = supabase
     .from('attendance_sessions')
     .select(`
@@ -66,7 +64,8 @@ export async function getSubjectStats(
     }
   })
 
-  // Aggregate per-student
+  // Per-student aggregation — only counts records from sessions that were fetched
+  // (already batch-filtered above), so students outside this batch are never included
   const studentMap: Record<string, {
     roll_number: string
     name: string | null
@@ -98,14 +97,19 @@ export async function getSubjectStats(
     }))
     .sort((a, b) => a.roll_number.localeCompare(b.roll_number))
 
-  const totalPresent = sessions.reduce((sum, s) => sum + s.present, 0)
-  const totalAll     = sessions.reduce((sum, s) => sum + s.total, 0)
+  const totalPresent  = sessions.reduce((sum, s) => sum + s.present, 0)
+  const totalAll      = sessions.reduce((sum, s) => sum + s.total, 0)
+
+  // ✅ Fix: use max total across sessions (not just first session)
+  const totalStrength = sessions.length > 0
+    ? Math.max(...sessions.map(s => s.total))
+    : 0
 
   return {
     totalSessions:  sessions.length,
     totalPresent,
     totalAbsent:    totalAll - totalPresent,
-    totalStrength:  sessions[0]?.total ?? 0,
+    totalStrength,
     avgAttendance:  totalAll > 0 ? Math.round((totalPresent / totalAll) * 100) : 0,
     sessions:       sessions.map(({ records: _, ...rest }) => rest),
     studentStats,

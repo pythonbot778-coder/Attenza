@@ -128,3 +128,34 @@ export function check(result: ValidationResult): boolean {
   }
   return true
 }
+
+// ─── College Email ───────────────────────────────────────────
+
+const ALLOWED_EMAIL_DOMAINS = ['svce.edu.in']
+
+export function isValidEmail(raw: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw.trim().toLowerCase())
+}
+
+export function getEmailDomain(raw: string): string {
+  const email = raw.trim().toLowerCase()
+  const parts = email.split('@')
+  return parts.length === 2 ? parts[1] : ''
+}
+
+export function isAllowedCollegeEmail(raw: string): boolean {
+  const domain = getEmailDomain(raw)
+  return !!domain && ALLOWED_EMAIL_DOMAINS.includes(domain)
+}
+
+export function validateCollegeEmail(raw: string): ValidationResult {
+  const email = raw.trim().toLowerCase()
+
+  if (!email) return err('Email is required.')
+  if (!isValidEmail(email)) return err('Please enter a valid email address.')
+  if (!isAllowedCollegeEmail(email)) {
+    return err('Only @svce.edu.in email addresses are allowed.')
+  }
+
+  return ok()
+}

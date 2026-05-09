@@ -9,6 +9,7 @@ import { supabase }            from '../../api/supabase'
 import { COLORS }              from '../../constants/colors'
 import { AuthStackParams }     from '../../navigation/AuthNavigator'
 import { hydrateAuthState }    from '../../store/authStore'
+import { check, validateCollegeEmail } from '../../utils/validation'
 
 type Props = {
   navigation: StackNavigationProp<AuthStackParams, 'Login'>
@@ -20,16 +21,11 @@ export function LoginScreen({ navigation }: Props) {
   const [mode,     setMode]     = useState<'password' | 'otp'>('password')
   const [loading,  setLoading]  = useState(false)
 
-  const isValidEmail = (e: string) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.toLowerCase())
-
   // ── Password Login ────────────────────────────────────────
   async function handlePasswordLogin() {
     const trimmed = email.trim().toLowerCase()
-    if (!isValidEmail(trimmed)) {
-      Alert.alert('Invalid Email', 'Please enter a valid email address.')
-      return
-    }
+
+    if (!check(validateCollegeEmail(trimmed))) return
     if (!password) {
       Alert.alert('Required', 'Please enter your password.')
       return
@@ -37,12 +33,13 @@ export function LoginScreen({ navigation }: Props) {
 
     setLoading(true)
     const { error } = await supabase.auth.signInWithPassword({
-      email:    trimmed,
-      password: password,
+      email: trimmed,
+      password,
     })
 
+    setLoading(false)
+
     if (error) {
-      setLoading(false)
       Alert.alert(
         'Login Failed',
         error.message?.includes('Invalid login credentials')
@@ -60,22 +57,23 @@ export function LoginScreen({ navigation }: Props) {
   // ── OTP Login ─────────────────────────────────────────────
   async function handleSendOTP() {
     const trimmed = email.trim().toLowerCase()
-    if (!isValidEmail(trimmed)) {
-      Alert.alert('Invalid Email', 'Please enter a valid email address.')
-      return
-    }
+
+    if (!check(validateCollegeEmail(trimmed))) return
 
     setLoading(true)
+
     const { error } = await supabase.auth.signInWithOtp({
-      email:   trimmed,
+      email: trimmed,
       options: { shouldCreateUser: true },
     })
+
     setLoading(false)
 
     if (error) {
       Alert.alert('Error', error.message ?? 'An unexpected error occurred.')
       return
     }
+
     navigation.navigate('OTP', { email: trimmed })
   }
 

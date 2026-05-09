@@ -9,15 +9,12 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "attenza",
-
     "icon": "./assets/icon.png",
-
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#4F46E5"
     },
-
     "ios": {
       "bundleIdentifier": "com.vindra.attenza",
       "buildNumber": "1",
@@ -29,28 +26,28 @@
         "CFBundleDevelopmentRegion": "en"
       }
     },
-
     "android": {
       "package": "com.vindra.attenza",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#4F46E5"
       },
-      "edgeToEdgeEnabled": false,
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "android.permission.INTERNET",
-        "android.permission.ACCESS_NETWORK_STATE"
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
-
     "web": {
       "favicon": "./assets/favicon.png"
     },
-
     "plugins": [
       "expo-secure-store",
+      "expo-notifications",
+      "./withAndroidManifestFix",
       [
         "expo-build-properties",
         {
@@ -63,17 +60,16 @@
             "deploymentTarget": "15.1"
           }
         }
-      ]
+      ],
+      "expo-font"
     ],
-
     "extra": {
       "eas": {
         "projectId": "3a04ba9e-0d30-4743-8e60-f735894d2922"
       }
     },
-
     "updates": {
-      "url": "https://u.expo.dev/",
+      "url": "https://u.expo.dev/3a04ba9e-0d30-4743-8e60-f735894d2922",
       "fallbackToCacheTimeout": 0,
       "enabled": false
     }

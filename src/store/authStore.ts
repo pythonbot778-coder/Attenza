@@ -15,6 +15,7 @@ type AuthState = {
   userId: string | null
   email: string | null
   name: string | null
+  avatarUrl: string | null
   role: Role
   branch: string | null
   year: string | null
@@ -36,6 +37,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   userId: null,
   email: null,
   name: null,
+  avatarUrl: null,
   role: null,
   branch: null,
   year: null,
@@ -57,6 +59,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       userId: null,
       email: null,
       name: null,
+      avatarUrl: null,
       role: null,
       branch: null,
       year: null,
@@ -100,7 +103,7 @@ export async function hydrateAuthState() {
     try {
       const res = await supabase
         .from('users')
-        .select('name, role_global, mobile_number')
+        .select('name, avatar_url, role_global, mobile_number')
         .eq('id', userId)
         .maybeSingle()
 
@@ -135,39 +138,40 @@ export async function hydrateAuthState() {
     }
 
     const cg = member?.class_groups as any
-const existing = useAuthStore.getState()
-const profileComplete = !!userRow?.name
+    const existing = useAuthStore.getState()
+    const profileComplete = !!userRow?.name
 
-const resolvedRole: Role = isAdmin
-  ? 'admin'
-  : profileComplete
-    ? ((member?.role ?? 'STUDENT') as Role)
-    : null
+    const resolvedRole: Role = isAdmin
+      ? 'admin'
+      : profileComplete
+        ? ((member?.role ?? 'STUDENT') as Role)
+        : null
 
-const classNotSetUp =
-  !isAdmin && profileComplete && resolvedRole === 'STUDENT' && !member
+    const classNotSetUp =
+      !isAdmin && profileComplete && resolvedRole === 'STUDENT' && !member
 
-let authStep: AuthStep = 'OTP_VERIFIED'
-if (profileComplete) authStep = 'ONBOARDED'
+    let authStep: AuthStep = 'OTP_VERIFIED'
+    if (profileComplete) authStep = 'ONBOARDED'
 
-const payload: Partial<AuthState> = {
-  userId,
-  email,
-  name: userRow?.name ?? session.user.user_metadata?.name ?? existing.name ?? null,
-  role: resolvedRole,
-  branch: cg?.branch ?? null,
-  year: cg?.year ?? null,
-  semester: cg?.semester ?? null,
-  section: cg?.section ?? null,
-  classId: member?.class_id ?? null,
-  rollNumber: member?.roll_number ?? existing.rollNumber ?? null,
-  mobileNumber: userRow?.mobile_number ?? existing.mobileNumber ?? null,
-  isAuthenticated: true,
-  isLoading: false,
-  classNotSetUp,
-  profileComplete,
-  authStep,
-}
+    const payload: Partial<AuthState> = {
+      userId,
+      email,
+      name: userRow?.name ?? session.user.user_metadata?.name ?? existing.name ?? null,
+      avatarUrl: userRow?.avatar_url ?? existing.avatarUrl ?? null,
+      role: resolvedRole,
+      branch: cg?.branch ?? null,
+      year: cg?.year ?? null,
+      semester: cg?.semester ?? null,
+      section: cg?.section ?? null,
+      classId: member?.class_id ?? null,
+      rollNumber: member?.roll_number ?? existing.rollNumber ?? null,
+      mobileNumber: userRow?.mobile_number ?? existing.mobileNumber ?? null,
+      isAuthenticated: true,
+      isLoading: false,
+      classNotSetUp,
+      profileComplete,
+      authStep,
+    }
 
     logger.log('hydrate payload', payload)
     useAuthStore.getState().setUser(payload)

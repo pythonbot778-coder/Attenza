@@ -10,6 +10,7 @@ import { supabase } from '../../api/supabase'
 import { useAuthStore } from '../../store/authStore'
 import { COLORS } from '../../constants/colors'
 import { AuthStackParams } from '../../navigation/AuthNavigator'
+import { check, validateCollegeEmail } from '../../utils/validation'
 
 type Props = {
   navigation: StackNavigationProp<AuthStackParams, 'OTP'>
@@ -84,12 +85,17 @@ export function OTPScreen({ navigation, route }: Props) {
   }
 
   async function handleResend() {
+    if (!check(validateCollegeEmail(email))) return
+
     setResending(true)
+
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: { shouldCreateUser: true },
     })
+
     setResending(false)
+
     if (!error) {
       setCountdown(60)
       setOtp(['', '', '', '', '', ''])

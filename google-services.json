@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "543399226961",
+    "project_id": "attenza-f1989",
+    "storage_bucket": "attenza-f1989.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:543399226961:android:d945cc6fe44ee9b6251270",
+        "android_client_info": {
+          "package_name": "com.vindra.attenza"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2YJ_apHwX1nytykJetj6k947zCc6eGtI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

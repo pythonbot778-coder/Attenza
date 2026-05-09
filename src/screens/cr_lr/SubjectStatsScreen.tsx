@@ -128,17 +128,23 @@ export function SubjectStatsScreen() {
             </View>
 
             {isLab && batchList.length > 0 && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.batchRow}>
-                    {batchList.map((b) => (
-                        <TouchableOpacity
-                            key={b.batch_name}
-                            style={[styles.batchPill, selectedBatch === b.batch_name && styles.batchPillActive]}
-                            onPress={() => setSelectedBatch(b.batch_name)}
-                        >
-                            <Text style={[styles.batchPillText, selectedBatch === b.batch_name && styles.batchPillTextActive]}>{b.batch_name}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
+                <View style={styles.batchWrap}>
+                    {batchList.map((b) => {
+                        const active = selectedBatch === b.batch_name
+                        return (
+                            <TouchableOpacity
+                                key={b.batch_name}
+                                style={[styles.batchHalf, active && styles.batchHalfActive]}
+                                onPress={() => setSelectedBatch(b.batch_name)}
+                                activeOpacity={0.85}
+                            >
+                                <Text style={[styles.batchHalfText, active && styles.batchHalfTextActive]}>
+                                    {b.batch_name}
+                                </Text>
+                            </TouchableOpacity>
+                        )
+                    })}
+                </View>
             )}
 
             <View style={styles.tabRow}>
@@ -221,23 +227,35 @@ export function SubjectStatsScreen() {
                     )}
 
                     {activeTab === 'sessions' && (
-                        <View style={styles.sectionCard}>
-                            <Text style={styles.sectionTitle}>{stats.totalSessions} Sessions</Text>
-                            {stats.sessions.map((s) => (
-                                <View key={s.id} style={styles.sessionRow}>
-                                    <View style={styles.sessionLeft}>
-                                        <Text style={styles.sessionDate}>{formatDate(s.date_selected)}</Text>
-                                        {s.is_edited && <View style={styles.editedPill}><Text style={styles.editedPillText}>edited</Text></View>}
-                                    </View>
-                                    <View style={styles.sessionMid}><PctBar pct={s.percent} /></View>
-                                    <View style={styles.sessionRight}>
-                                        <Text style={[styles.sessionPct, { color: pctColor(s.percent) }]}>{s.percent}%</Text>
-                                        <Text style={styles.sessionCounts}>{s.present}/{s.total}</Text>
-                                    </View>
-                                </View>
-                            ))}
-                        </View>
-                    )}
+  <View style={styles.sectionCard}>
+    <Text style={styles.sectionTitle}>{stats.totalSessions} Sessions</Text>
+    {stats.sessions.map((s) => (
+      <View key={s.id} style={styles.sessionRow}>
+        <View style={styles.sessionLeft}>
+          <Text style={styles.sessionDate}>{formatDate(s.date_selected)}</Text>
+          {/* ✅ Show batch label per session */}
+          {s.batch_name && (
+            <View style={styles.batchTag}>
+              <Text style={styles.batchTagText}>{s.batch_name}</Text>
+            </View>
+          )}
+          {s.is_edited && (
+            <View style={styles.editedPill}>
+              <Text style={styles.editedPillText}>edited</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.sessionMid}>
+          <PctBar pct={s.percent} />
+        </View>
+        <View style={styles.sessionRight}>
+          <Text style={[styles.sessionPct, { color: pctColor(s.percent) }]}>{s.percent}%</Text>
+          <Text style={styles.sessionCounts}>{s.present}/{s.total}</Text>
+        </View>
+      </View>
+    ))}
+  </View>
+)}
 
                     {activeTab === 'students' && (
                         <View style={styles.sectionCard}>
@@ -273,17 +291,47 @@ const styles = StyleSheet.create({
     headerSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
     typeBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
     typeBadgeText: { fontSize: 12, fontWeight: '700' },
-    batchRow: { flexDirection: 'row', gap: 8, padding: 12, backgroundColor: COLORS.surface, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-    batchPill: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5, borderColor: COLORS.border, backgroundColor: COLORS.background },
-    batchPillActive: { backgroundColor: COLORS.success, borderColor: COLORS.success },
-    batchPillText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
-    batchPillTextActive: { color: '#fff' },
+    batchWrap: {
+        flexDirection: 'row',
+        gap: 10,
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        paddingBottom: 10,
+        backgroundColor: COLORS.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+    },
+    batchHalf: {
+        flex: 1,
+        height: 60,
+        borderRadius: 18,
+        borderWidth: 1.5,
+        borderColor: COLORS.border,
+        backgroundColor: COLORS.background,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    batchHalfActive: {
+        backgroundColor: COLORS.success,
+        borderColor: COLORS.success,
+    },
+    batchHalfText: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: COLORS.textSecondary,
+    },
+    batchHalfTextActive: {
+        color: '#fff',
+    },
     tabRow: { flexDirection: 'row', backgroundColor: COLORS.surface, borderBottomWidth: 1, borderBottomColor: COLORS.border },
     tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
     tabActive: { borderBottomColor: COLORS.primary },
     tabText: { fontSize: 12, fontWeight: '600', color: COLORS.textMuted },
     tabTextActive: { color: COLORS.primary },
-    content: { padding: 16 },
+    content: {
+        padding: 16,
+        paddingTop: 18,
+    },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
     loadingText: { color: COLORS.textMuted, fontSize: 14 },
     emptyIcon: { fontSize: 48, marginBottom: 12 },
@@ -301,7 +349,14 @@ const styles = StyleSheet.create({
     actionBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
     actionBtnOutline: { backgroundColor: COLORS.surface, borderWidth: 1.5, borderColor: COLORS.border },
     actionBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-    sectionCard: { backgroundColor: COLORS.surface, borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: COLORS.border },
+    sectionCard: {
+        backgroundColor: COLORS.surface,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 18,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+    },
     sectionTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 12 },
     trendRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
     trendDate: { fontSize: 12, color: COLORS.textSecondary, width: 70 },
@@ -311,12 +366,25 @@ const styles = StyleSheet.create({
     riskPct: { fontSize: 12, fontWeight: '700', width: 36, textAlign: 'right' },
     allGood: { fontSize: 13, color: COLORS.present, fontWeight: '600' },
     sessionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border + '60' },
-    sessionLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, width: 90 },
+    sessionLeft: {
+        width: 128,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        flexWrap: 'wrap',
+    },
     sessionDate: { fontSize: 12, fontWeight: '600', color: COLORS.textPrimary },
     editedPill: { backgroundColor: '#F59E0B20', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 },
     editedPillText: { fontSize: 9, fontWeight: '700', color: '#F59E0B' },
-    sessionMid: { flex: 1 },
-    sessionRight: { alignItems: 'flex-end', width: 44 },
+    sessionMid: {
+        flex: 1,
+        marginLeft: 6,
+        marginRight: 8,
+    },
+    sessionRight: {
+        alignItems: 'flex-end',
+        width: 40,
+    },
     sessionPct: { fontSize: 13, fontWeight: '800' },
     sessionCounts: { fontSize: 10, color: COLORS.textMuted },
     studentRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border + '60' },
@@ -326,4 +394,16 @@ const styles = StyleSheet.create({
     studentRoll: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
     studentName: { fontSize: 11, color: COLORS.textSecondary },
     studentCounts: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
+    batchTag: {
+        backgroundColor: COLORS.success + '20',
+        paddingHorizontal: 5,
+        paddingVertical: 2,
+        borderRadius: 6,
+        marginTop: 2,
+    },
+    batchTagText: {
+        fontSize: 9,
+        fontWeight: '700',
+        color: COLORS.success,
+    },
 })

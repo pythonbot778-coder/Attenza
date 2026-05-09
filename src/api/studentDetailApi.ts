@@ -1,34 +1,71 @@
 import { supabase } from './supabase'
 
 export interface StudentSubjectSession {
-  id:            string
+  id: string
   date_selected: string
-  batch_name:    string | null
-  status:        'present' | 'absent'
-  is_edited:     boolean
+  batch_name: string | null
+  status: 'present' | 'absent'
+  is_edited: boolean
+}
+
+function rollToNum(roll: string): number {
+  const n = parseInt((roll ?? '').replace(/\D/g, ''), 10)
+  return Number.isFinite(n) ? n : -1
 }
 
 export async function getStudentSubjectSessions(
-  userId:    string,
+  userId: string,
   subjectId: string
 ): Promise<StudentSubjectSession[]> {
-  // Step 1: resolve this user's class_member record
   const { data: member, error: memberError } = await supabase
     .from('class_members')
-    .select('id, class_id')
+    .select('id, class_id, roll_number')
     .eq('user_id', userId)
     .eq('status', 'active')
     .maybeSingle()
 
   if (memberError) throw memberError
-  if (!member)     throw new Error('Member not found')
+  if (!member) throw new Error('Member not found')
 
-  // Step 2: fetch sessions for this subject + this class
-  // is_edited column now exists (added by ChatGPT migration)
+  const { data: subject, error: subjectError } = await supabase
+    .from('subjects')
+    .select('id, type')
+    .eq('id', subjectId)
+    .maybeSingle()
+
+  if (subjectError) throw subjectError
+  if (!subject) throw new Error('Subject not found')
+
+  let myBatchName: string | null = null
+
+  if (subject.type === 'LAB') {
+    if (!member.roll_number) throw new Error('Roll number not found for student')
+
+    const { data: labBatches, error: batchError } = await supabase
+      .from('lab_batches')
+      .select('id, subject_id, batch_name, start_roll, end_roll')
+      .eq('subject_id', subjectId)
+
+    if (batchError) throw batchError
+
+    const myRollNum = rollToNum(member.roll_number)
+
+    const myBatch = (labBatches ?? []).find((b: any) => {
+      const start = rollToNum(b.start_roll)
+      const end = rollToNum(b.end_roll)
+      return myRollNum >= start && myRollNum <= end
+    })
+
+    myBatchName = myBatch?.batch_name ?? null
+  }
+
   const { data, error } = await supabase
     .from('attendance_sessions')
     .select(`
-      id, date_selected, batch_name, is_edited,
+      id,
+      date_selected,
+      batch_name,
+      is_edited,
       attendance_records ( status, class_member_id )
     `)
     .eq('class_id', member.class_id)
@@ -37,16 +74,26 @@ export async function getStudentSubjectSessions(
 
   if (error) throw error
 
-  return (data ?? []).map((s: any) => {
-    const myRecord = (s.attendance_records ?? []).find(
-      (r: any) => r.class_member_id === member.id
-    )
-    return {
-      id:            s.id,
-      date_selected: s.date_selected,
-      batch_name:    s.batch_name,
-      status:        (myRecord?.status ?? 'absent') as 'present' | 'absent',
-      is_edited:     s.is_edited ?? false,
-    }
+  const filteredSessions = (data ?? []).filter((s: any) => {
+    if (subject.type !== 'LAB') return true
+    return s.batch_name === myBatchName
   })
+
+  return filteredSessions
+    .map((s: any) => {
+      const myRecord = (s.attendance_records ?? []).find(
+        (r: any) => r.class_member_id === member.id
+      )
+
+      if (!myRecord) return null
+
+      return {
+        id: s.id,
+        date_selected: s.date_selected,
+        batch_name: s.batch_name,
+        status: myRecord.status as 'present' | 'absent',
+        is_edited: s.is_edited ?? false,
+      }
+    })
+    .filter(Boolean) as StudentSubjectSession[]
 }
