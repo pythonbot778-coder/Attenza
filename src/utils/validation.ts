@@ -133,6 +133,9 @@ export function check(result: ValidationResult): boolean {
 
 const ALLOWED_EMAIL_DOMAINS = ['svce.edu.in']
 
+// Add any admin / developer emails here that bypass the domain check
+const ADMIN_EMAILS = ['vindapradha832@gmail.com']  // ← replace with your actual email
+
 export function isValidEmail(raw: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw.trim().toLowerCase())
 }
@@ -153,6 +156,10 @@ export function validateCollegeEmail(raw: string): ValidationResult {
 
   if (!email) return err('Email is required.')
   if (!isValidEmail(email)) return err('Please enter a valid email address.')
+
+  // Admin bypass — skips domain check entirely
+  if (ADMIN_EMAILS.includes(email)) return ok()
+
   if (!isAllowedCollegeEmail(email)) {
     return err('Only @svce.edu.in email addresses are allowed.')
   }

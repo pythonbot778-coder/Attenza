@@ -22,14 +22,16 @@
       "requireFullScreen": true,
       "infoPlist": {
         "NSFaceIDUsageDescription": "Used to secure your attendance data",
-        "CFBundleLocalizations": ["en"],
+        "CFBundleLocalizations": [
+          "en"
+        ],
         "CFBundleDevelopmentRegion": "en"
       }
     },
     "android": {
       "package": "com.vindra.attenza",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 1,
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#4F46E5"
@@ -65,13 +67,14 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "3a04ba9e-0d30-4743-8e60-f735894d2922"
+        "projectId": "afda8a63-2555-4f78-96a7-d306ded825dc"
       }
     },
     "updates": {
       "url": "https://u.expo.dev/3a04ba9e-0d30-4743-8e60-f735894d2922",
       "fallbackToCacheTimeout": 0,
       "enabled": false
-    }
+    },
+    "owner": "python778"
   }
 }

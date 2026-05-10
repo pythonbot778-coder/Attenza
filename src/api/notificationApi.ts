@@ -30,6 +30,7 @@ export async function registerPushToken(token: string, platform: 'ios' | 'androi
 
 export async function getClassPushTokens(classId: string): Promise<string[]> {
   const data = await rpc<string[] | null>('get_class_push_tokens', { p_class_id: classId })
+  console.log('[Notifications] getClassPushTokens for class', classId, '→', data)
   return data ?? []
 }
 

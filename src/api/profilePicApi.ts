@@ -21,7 +21,7 @@ export async function uploadProfilePicture(userId: string, uri: string): Promise
   const ext = getExt(uri)
   const filePath = `${userId}/avatar.${ext}`
   const base64 = await FileSystem.readAsStringAsync(uri, {
-    encoding: FileSystem.EncodingType.Base64,
+    encoding: 'base64',
   })
 
   const { error: uploadError } = await supabase.storage
