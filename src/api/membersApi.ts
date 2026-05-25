@@ -19,3 +19,22 @@ export async function getClassMembers(classId: string): Promise<ClassMemberRow[]
   if (error) throw error
   return (data ?? []) as ClassMemberRow[]
 }
+
+export interface AddMembersResult {
+  added: number
+  skipped_same_class: number
+  skipped_other_class: number
+  other_class_conflicts: string[]
+}
+
+export async function addCustomClassMembers(
+  classId: string,
+  rollNumbers: string[]
+): Promise<AddMembersResult> {
+  const { data, error } = await supabase.rpc('add_custom_class_members', {
+    p_class_id: classId,
+    p_roll_numbers: rollNumbers,
+  })
+  if (error) throw error
+  return data as AddMembersResult
+}

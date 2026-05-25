@@ -1,7 +1,8 @@
-import React, { useCallback, useState, useRef, useEffect } from 'react'
+import React, { useCallback, useState, useRef, useEffect, useMemo } from 'react'
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
     ActivityIndicator, Alert, RefreshControl, Pressable, FlatList,
+    Modal, TextInput,
 } from 'react-native'
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
@@ -12,9 +13,25 @@ import { AdminClassStackParams } from '../../navigation/AdminNavigator'
 import {
     getClassMembers, getClassSubjects, getClassSessions,
     adminChangeRole, adminDeleteMember, adminDeleteSession,
+    adminPromoteClass, adminDemoteClass, adminEditClassAcademic,
     AdminClassMember, AdminSubject, AdminSession,
 } from '../../api/adminApi'
+import { useAuthStore } from '../../store/authStore'
 import { BroadcastModal } from '../shared/BroadcastModal'
+
+const YEARS = [1, 2, 3, 4]
+const SEMS  = [1, 2]
+
+function parseLabel(label: string): { branch: string; year: number; semester: number; section: string } {
+    // Expected format: "BRANCH Y# S# §SECTION" — fall back to safe defaults
+    const m = label.match(/^(\S+)\s+Y(\d+)\s+S(\d+)\s+§(.+)$/)
+    if (!m) return { branch: '', year: 1, semester: 1, section: '' }
+    return { branch: m[1], year: parseInt(m[2], 10), semester: parseInt(m[3], 10), section: m[4].trim() }
+}
+
+function buildLabel(branch: string, year: number, semester: number, section: string): string {
+    return `${branch} Y${year} S${semester} §${section}`
+}
 
 type Nav   = StackNavigationProp<AdminClassStackParams, 'AdminClassDetail'>
 type Route = RouteProp<AdminClassStackParams, 'AdminClassDetail'>
@@ -36,7 +53,19 @@ export function AdminClassDetailScreen() {
     // ── Broadcast modal state ─────────────────────────────────
     const [broadcastVisible, setBroadcastVisible] = useState(false)
 
-    const { classId, label } = route.params
+    // ── Academic state (parsed from initial label, kept in local state so UI updates) ──
+    const { classId, label: initialLabel } = route.params
+    const [label, setLabel] = useState(initialLabel)
+    const parsed = useMemo(() => parseLabel(label), [label])
+
+    // ── Academic edit modal state ─────────────────────────────
+    const [editVisible, setEditVisible] = useState(false)
+    const [editYear, setEditYear] = useState(parsed.year)
+    const [editSem, setEditSem] = useState(parsed.semester)
+    const [editSection, setEditSection] = useState(parsed.section)
+    const [editSaving, setEditSaving] = useState(false)
+    const [academicBusy, setAcademicBusy] = useState(false)
+    const { userId } = useAuthStore()
 
     useEffect(() => { return () => { isMounted.current = false } }, [])
 
@@ -62,6 +91,112 @@ export function AdminClassDetailScreen() {
     }
 
     useFocusEffect(useCallback(() => { if (classId) load() }, [classId]))
+
+    function applyAcademic(year: number, semester: number, section: string) {
+        setLabel(buildLabel(parsed.branch, year, semester, section))
+    }
+
+    function confirmPromoteClass() {
+        const next = parsed.semester === 1
+            ? `Y${parsed.year} S2`
+            : `Y${parsed.year + 1} S1`
+        Alert.alert(
+            'Promote Class?',
+            `${label}\n\nwill become\n\n${parsed.branch} ${next} §${parsed.section}\n\n` +
+            `All students, attendance, lab batches, and CR/LR assignments stay intact.`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Promote', style: 'default', onPress: doPromoteClass },
+            ]
+        )
+    }
+
+    function confirmDemoteClass() {
+        const prev = parsed.semester === 2
+            ? `Y${parsed.year} S1`
+            : `Y${parsed.year - 1} S2`
+        Alert.alert(
+            'Demote Class?',
+            `${label}\n\nwill become\n\n${parsed.branch} ${prev} §${parsed.section}\n\n` +
+            `Use this only to undo a wrong promotion. All linked data stays intact.`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Demote', style: 'destructive', onPress: doDemoteClass },
+            ]
+        )
+    }
+
+    async function doPromoteClass() {
+        if (!userId) return
+        try {
+            setAcademicBusy(true)
+            const result = await adminPromoteClass(classId, userId)
+            applyAcademic(result.to_year, result.to_sem, parsed.section)
+            Alert.alert('Promoted', `Now at Y${result.to_year} S${result.to_sem}.`)
+        } catch (e: any) {
+            Alert.alert('Error', e?.message ?? 'Promotion failed.')
+        } finally {
+            setAcademicBusy(false)
+        }
+    }
+
+    async function doDemoteClass() {
+        if (!userId) return
+        try {
+            setAcademicBusy(true)
+            const result = await adminDemoteClass(classId, userId)
+            applyAcademic(result.to_year, result.to_sem, parsed.section)
+            Alert.alert('Demoted', `Now at Y${result.to_year} S${result.to_sem}.`)
+        } catch (e: any) {
+            Alert.alert('Error', e?.message ?? 'Demotion failed.')
+        } finally {
+            setAcademicBusy(false)
+        }
+    }
+
+    function openEdit() {
+        setEditYear(parsed.year)
+        setEditSem(parsed.semester)
+        setEditSection(parsed.section)
+        setEditVisible(true)
+    }
+
+    async function saveEdit() {
+        if (!userId) return
+        const sec = editSection.trim().toUpperCase()
+        if (!sec) {
+            Alert.alert('Required', 'Section cannot be empty.')
+            return
+        }
+        if (editYear === parsed.year && editSem === parsed.semester && sec === parsed.section) {
+            setEditVisible(false)
+            return
+        }
+        Alert.alert(
+            'Apply Changes?',
+            `${label}\n\nwill become\n\n${buildLabel(parsed.branch, editYear, editSem, sec)}\n\n` +
+            `All linked data (students, attendance, labs, CR/LR) stays intact.`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Save', style: 'default',
+                    onPress: async () => {
+                        try {
+                            setEditSaving(true)
+                            await adminEditClassAcademic(classId, editYear, editSem, sec, userId)
+                            applyAcademic(editYear, editSem, sec)
+                            setEditVisible(false)
+                            Alert.alert('Updated', 'Class academic details updated.')
+                        } catch (e: any) {
+                            Alert.alert('Error', e?.message ?? 'Update failed.')
+                        } finally {
+                            setEditSaving(false)
+                        }
+                    },
+                },
+            ]
+        )
+    }
 
     async function handleChangeRole(memberId: string, newRole: 'CR' | 'LR' | 'STUDENT') {
         if (isMutating.current) return
@@ -132,7 +267,7 @@ export function AdminClassDetailScreen() {
                 showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} colors={[COLORS.primary]} />}
             >
-                {/* Header — back + title + broadcast bell */}
+                {/* Header — back + title + actions */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                         <Ionicons name="chevron-back" size={24} color={COLORS.primary} />
@@ -141,14 +276,50 @@ export function AdminClassDetailScreen() {
                         <Text style={styles.headerTitle}>{label}</Text>
                         <Text style={styles.headerSub}>{members.length} total members</Text>
                     </View>
-                    {/* Broadcast button */}
                     <TouchableOpacity
-                        style={styles.broadcastBtn}
+                        style={styles.headerIconBtn}
                         onPress={() => setBroadcastVisible(true)}
                         activeOpacity={0.7}
                     >
-                        <Ionicons name="megaphone-outline" size={22} color={COLORS.primary} />
+                        <Ionicons name="megaphone-outline" size={20} color={COLORS.primary} />
                     </TouchableOpacity>
+                </View>
+
+                {/* Academic action row */}
+                <View style={styles.academicRow}>
+                    {academicBusy ? (
+                        <View style={styles.academicBusyWrap}>
+                            <ActivityIndicator size="small" color={COLORS.primary} />
+                            <Text style={styles.academicBusyText}>Updating academic details…</Text>
+                        </View>
+                    ) : (
+                        <>
+                            <TouchableOpacity
+                                style={[styles.academicBtn, styles.academicBtnDemote]}
+                                onPress={confirmDemoteClass}
+                                activeOpacity={0.85}
+                            >
+                                <Ionicons name="arrow-back" size={14} color={COLORS.absent} />
+                                <Text style={[styles.academicBtnText, { color: COLORS.absent }]}>Demote</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.academicBtn, styles.academicBtnPromote]}
+                                onPress={confirmPromoteClass}
+                                activeOpacity={0.85}
+                            >
+                                <Ionicons name="arrow-forward" size={14} color="#fff" />
+                                <Text style={[styles.academicBtnText, { color: '#fff' }]}>Promote</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.academicBtn, styles.academicBtnEdit]}
+                                onPress={openEdit}
+                                activeOpacity={0.85}
+                            >
+                                <Ionicons name="create-outline" size={14} color={COLORS.primary} />
+                                <Text style={[styles.academicBtnText, { color: COLORS.primary }]}>Edit</Text>
+                            </TouchableOpacity>
+                        </>
+                    )}
                 </View>
 
                 {/* Stats */}
@@ -307,6 +478,91 @@ export function AdminClassDetailScreen() {
                 classLabel={label}
                 onClose={() => setBroadcastVisible(false)}
             />
+
+            {/* Edit Academic Details modal */}
+            <Modal
+                visible={editVisible}
+                animationType="slide"
+                transparent
+                onRequestClose={() => !editSaving && setEditVisible(false)}
+            >
+                <View style={styles.editOverlay}>
+                    <View style={styles.editSheet}>
+                        <View style={styles.editHandle} />
+                        <Text style={styles.editTitle}>Edit Academic Details</Text>
+                        <Text style={styles.editSub}>{parsed.branch} · current: {label}</Text>
+
+                        <Text style={styles.editLabel}>Year</Text>
+                        <View style={styles.pillRow}>
+                            {YEARS.map(y => (
+                                <TouchableOpacity
+                                    key={y}
+                                    style={[styles.pill, editYear === y && styles.pillActive]}
+                                    onPress={() => setEditYear(y)}
+                                    disabled={editSaving}
+                                >
+                                    <Text style={[styles.pillText, editYear === y && styles.pillTextActive]}>
+                                        Year {y}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        <Text style={styles.editLabel}>Semester</Text>
+                        <View style={styles.pillRow}>
+                            {SEMS.map(s => (
+                                <TouchableOpacity
+                                    key={s}
+                                    style={[styles.pill, editSem === s && styles.pillActive]}
+                                    onPress={() => setEditSem(s)}
+                                    disabled={editSaving}
+                                >
+                                    <Text style={[styles.pillText, editSem === s && styles.pillTextActive]}>
+                                        Sem {s}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        <Text style={styles.editLabel}>Section</Text>
+                        <TextInput
+                            style={styles.editInput}
+                            value={editSection}
+                            onChangeText={(t) => setEditSection(t.toUpperCase())}
+                            placeholder="e.g. A"
+                            placeholderTextColor={COLORS.textMuted}
+                            autoCapitalize="characters"
+                            maxLength={4}
+                            editable={!editSaving}
+                        />
+
+                        <Text style={styles.editHint}>
+                            Branch ({parsed.branch}) is not editable here. All linked students, attendance,
+                            lab batches, and CR/LR assignments remain intact.
+                        </Text>
+
+                        <View style={styles.editActions}>
+                            <TouchableOpacity
+                                style={styles.editCancelBtn}
+                                onPress={() => setEditVisible(false)}
+                                disabled={editSaving}
+                            >
+                                <Text style={styles.editCancelText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.editSaveBtn, editSaving && { opacity: 0.6 }]}
+                                onPress={saveEdit}
+                                disabled={editSaving}
+                            >
+                                {editSaving
+                                    ? <ActivityIndicator color="#fff" />
+                                    : <Text style={styles.editSaveText}>Save</Text>
+                                }
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </>
     )
 }
@@ -377,4 +633,171 @@ const styles = StyleSheet.create({
     sessionMetaText:  { fontSize: 12, color: COLORS.textSecondary },
     batchBadge:       { fontSize: 11, backgroundColor: COLORS.primaryLight + '30', color: COLORS.primary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, fontWeight: '600' },
     deleteSessionBtn: { paddingHorizontal: 8, paddingVertical: 6 },
+
+    // ─── Header icon button (replaces broadcastBtn slot) ──────────
+    headerIconBtn: {
+        padding: 8,
+        borderRadius: 999,
+        backgroundColor: COLORS.primary + '12',
+    },
+
+    // ─── Academic action row ──────────────────────────────────────
+    academicRow: {
+        flexDirection: 'row',
+        gap: 8,
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        backgroundColor: COLORS.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+    },
+    academicBusyWrap: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingVertical: 6,
+    },
+    academicBusyText: {
+        fontSize: 13,
+        color: COLORS.textSecondary,
+        fontWeight: '600',
+    },
+    academicBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 5,
+        paddingVertical: 8,
+        borderRadius: 10,
+        borderWidth: 1.5,
+    },
+    academicBtnPromote: {
+        backgroundColor: COLORS.primary,
+        borderColor: COLORS.primary,
+    },
+    academicBtnDemote: {
+        backgroundColor: COLORS.absent + '10',
+        borderColor: COLORS.absent + '60',
+    },
+    academicBtnEdit: {
+        backgroundColor: COLORS.primary + '10',
+        borderColor: COLORS.primary + '60',
+    },
+    academicBtnText: {
+        fontSize: 12,
+        fontWeight: '800',
+    },
+
+    // ─── Edit modal ───────────────────────────────────────────────
+    editOverlay: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.4)',
+    },
+    editSheet: {
+        backgroundColor: COLORS.background,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: 20,
+        paddingBottom: 32,
+    },
+    editHandle: {
+        width: 40,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: COLORS.border,
+        alignSelf: 'center',
+        marginBottom: 16,
+    },
+    editTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: COLORS.textPrimary,
+    },
+    editSub: {
+        fontSize: 12,
+        color: COLORS.textMuted,
+        marginTop: 4,
+        marginBottom: 16,
+    },
+    editLabel: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: COLORS.textPrimary,
+        marginTop: 10,
+        marginBottom: 8,
+    },
+    pillRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+    pill: {
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 18,
+        borderWidth: 1.5,
+        borderColor: COLORS.border,
+        backgroundColor: COLORS.surface,
+    },
+    pillActive: {
+        backgroundColor: COLORS.primary,
+        borderColor: COLORS.primary,
+    },
+    pillText: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: COLORS.textSecondary,
+    },
+    pillTextActive: {
+        color: '#fff',
+    },
+    editInput: {
+        backgroundColor: COLORS.surface,
+        borderWidth: 1.5,
+        borderColor: COLORS.border,
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        fontSize: 14,
+        color: COLORS.textPrimary,
+    },
+    editHint: {
+        fontSize: 11,
+        color: COLORS.textMuted,
+        marginTop: 14,
+        lineHeight: 16,
+    },
+    editActions: {
+        flexDirection: 'row',
+        gap: 10,
+        marginTop: 18,
+    },
+    editCancelBtn: {
+        flex: 1,
+        paddingVertical: 13,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        alignItems: 'center',
+        backgroundColor: COLORS.surface,
+    },
+    editCancelText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: COLORS.textPrimary,
+    },
+    editSaveBtn: {
+        flex: 2,
+        paddingVertical: 13,
+        borderRadius: 12,
+        alignItems: 'center',
+        backgroundColor: COLORS.primary,
+    },
+    editSaveText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#fff',
+    },
 })

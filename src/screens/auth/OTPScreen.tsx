@@ -18,7 +18,7 @@ type Props = {
 }
 
 export function OTPScreen({ navigation, route }: Props) {
-  const { email } = route.params
+  const { email, purpose } = route.params
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
   const [loading, setLoading] = useState(false)
   const [resending, setResending] = useState(false)
@@ -53,6 +53,15 @@ export function OTPScreen({ navigation, route }: Props) {
     }
 
     setLoading(true)
+
+    // Set the recovery authStep BEFORE calling verifyOtp so that when Supabase
+    // fires SIGNED_IN on onAuthStateChange (which can happen before the promise
+    // resolves), the guard in authStore already sees FORGOT_PASSWORD_OTP_VERIFIED
+    // and skips hydrateAuthState.
+    if (purpose === 'forgot_password') {
+      useAuthStore.getState().setUser({ authStep: 'FORGOT_PASSWORD_OTP_VERIFIED' })
+    }
+
     const { data, error } = await supabase.auth.verifyOtp({
       email,
       token: code,
@@ -61,6 +70,10 @@ export function OTPScreen({ navigation, route }: Props) {
     setLoading(false)
 
     if (error) {
+      // Revert the early authStep set on failure so the store isn't stuck.
+      if (purpose === 'forgot_password') {
+        useAuthStore.getState().setUser({ authStep: 'UNAUTHENTICATED' })
+      }
       Alert.alert('Invalid OTP', 'The code is incorrect or expired. Try again.')
       setOtp(['', '', '', '', '', ''])
       inputs.current[0]?.focus()
@@ -68,19 +81,19 @@ export function OTPScreen({ navigation, route }: Props) {
     }
 
     if (data.user) {
-      // Mark OTP as verified in the store — do NOT call hydrateAuthState here.
-      // Setting authStep = OTP_VERIFIED tells RootNavigator to keep the user
-      // inside AuthNavigator without jumping to ProfileSetup prematurely.
-      useAuthStore.getState().setUser({
-        isAuthenticated: true,
-        userId: data.user.id,
-        email: data.user.email ?? email,
-        authStep: 'OTP_VERIFIED',
-        isLoading: false,
-      })
-
-      // Use replace so the user cannot go back to OTP screen from PasswordSetup
-      navigation.replace('PasswordSetup', { email })
+      if (purpose === 'forgot_password') {
+        navigation.replace('ChangePassword', { email })
+      } else {
+        // Normal OTP login — new account setup flow.
+        useAuthStore.getState().setUser({
+          isAuthenticated: true,
+          userId: data.user.id,
+          email: data.user.email ?? email,
+          authStep: 'OTP_VERIFIED',
+          isLoading: false,
+        })
+        navigation.replace('PasswordSetup', { email })
+      }
     }
   }
 

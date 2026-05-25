@@ -1,21 +1,21 @@
 import { supabase } from './supabase'
 
 export interface ClassNotification {
-  id:           string
-  type:         'attendance' | 'broadcast'
-  title:        string
-  body:         string
-  sent_count:   number
-  created_at:   string
+  id: string
+  type: 'attendance' | 'broadcast'
+  title: string
+  body: string
+  sent_count: number
+  created_at: string
   sent_by_name: string | null
 }
 
 export interface AdminNotification extends ClassNotification {
   class_id: string
-  branch:   string
-  year:     number
+  branch: string
+  year: number
   semester: number
-  section:  string
+  section: string
 }
 
 async function rpc<T>(fn: string, params: Record<string, any> = {}): Promise<T> {

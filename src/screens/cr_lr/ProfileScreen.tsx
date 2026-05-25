@@ -12,16 +12,23 @@ import {
   Switch,
   TextInput,
   Image,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { TabView, SceneMap } from 'react-native-tab-view'
 import { COLORS } from '../../constants/colors'
 import { useAuthStore } from '../../store/authStore'
 import { supabase } from '../../api/supabase'
-import { getClassMembers, ClassMemberRow } from '../../api/membersApi'
+import { getClassMembers, addCustomClassMembers, ClassMemberRow } from '../../api/membersApi'
 import { initiateRoleTransfer } from '../../api/roleTransferApi'
 import { getShowNames, setShowNames } from '../../utils/attendancePrefs'
 import { useNavigation } from '@react-navigation/native'
+import { generateRollRange } from '../../utils/rollNumberUtils'
+import { getArchivedSemesters, semesterLabel } from '../../api/attendanceApi'
+import { exportSemesterCsv } from '../../utils/csvExport'
+import { markCsvDownloaded } from '../../utils/promotionTracker'
 
 // ─── Profile Tab ──────────────────────────────────────────────
 function ProfileTab() {
@@ -48,6 +55,15 @@ function ProfileTab() {
   const [showNames, setShowNamesState] = useState(true)
   const [prefsLoading, setPrefsLoading] = useState(true)
 
+  const { classId } = useAuthStore()
+  const [semesterLabels, setSemesterLabels] = useState<string[]>([])
+  const [csvLoading, setCsvLoading] = useState<string | null>(null)
+  const [labelsLoading, setLabelsLoading] = useState(true)
+
+  const currentLabel = year != null && semester != null
+    ? semesterLabel(Number(year), Number(semester))
+    : null
+
   useEffect(() => {
     setDraftName(name ?? '')
   }, [name])
@@ -57,6 +73,36 @@ function ProfileTab() {
       .then((val) => setShowNamesState(val))
       .finally(() => setPrefsLoading(false))
   }, [])
+
+  useEffect(() => {
+    if (!classId) {
+      setLabelsLoading(false)
+      return
+    }
+    setLabelsLoading(true)
+    getArchivedSemesters(classId)
+      .then(setSemesterLabels)
+      .catch(() => setSemesterLabels([]))
+      .finally(() => setLabelsLoading(false))
+  }, [classId])
+
+  async function handleDownloadCsv(label: string) {
+    if (!classId) return
+    try {
+      setCsvLoading(label)
+      await exportSemesterCsv(classId, label, {
+        branch:   branch ?? '',
+        year:     year != null ? Number(year) : null,
+        semester: semester != null ? Number(semester) : null,
+        section:  section,
+      })
+      await markCsvDownloaded(classId, label)
+    } catch (e: any) {
+      Alert.alert('Export Failed', e?.message ?? 'Could not generate the CSV file.')
+    } finally {
+      setCsvLoading(null)
+    }
+  }
 
   async function handleSaveName() {
     const normalizedName = draftName.trim()
@@ -122,11 +168,11 @@ function ProfileTab() {
 
   const initials = name
     ? name
-        .split(' ')
-        .map((w: string) => w[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase()
+      .split(' ')
+      .map((w: string) => w[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase()
     : '??'
 
   return (
@@ -224,6 +270,52 @@ function ProfileTab() {
       </View>
 
       <View style={styles.card}>
+        <Text style={styles.cardTitle}>Attendance CSV</Text>
+        <Text style={styles.csvHint}>
+          Download attendance records for the current and archived semesters.
+          Files open in Excel, Google Sheets, or any spreadsheet app.
+        </Text>
+
+        {labelsLoading ? (
+          <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} />
+        ) : semesterLabels.length === 0 ? (
+          <Text style={styles.csvEmpty}>
+            No attendance recorded yet. Records will appear here once sessions are saved.
+          </Text>
+        ) : (
+          semesterLabels.map((label) => {
+            const isCurrent = label === currentLabel
+            const busy = csvLoading === label
+            return (
+              <View key={label} style={styles.csvRow}>
+                <View style={styles.csvRowLeft}>
+                  <Text style={styles.csvRowLabel}>{label}</Text>
+                  <Text style={styles.csvRowMeta}>
+                    {isCurrent ? 'Current semester' : 'Archived semester'}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.csvBtn, busy && { opacity: 0.6 }]}
+                  onPress={() => handleDownloadCsv(label)}
+                  disabled={busy}
+                  activeOpacity={0.85}
+                >
+                  {busy
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : (
+                      <>
+                        <Ionicons name="download-outline" size={14} color="#fff" />
+                        <Text style={styles.csvBtnText}>Download</Text>
+                      </>
+                    )}
+                </TouchableOpacity>
+              </View>
+            )
+          })
+        )}
+      </View>
+
+      <View style={styles.card}>
         <Text style={styles.cardTitle}>Attendance Display</Text>
         <View style={styles.prefRow}>
           <View style={{ flex: 1 }}>
@@ -305,6 +397,85 @@ function ClassMembersTab() {
   const [members, setMembers] = useState<ClassMemberRow[]>([])
   const [loading, setLoading] = useState(true)
 
+  const [addModalVisible, setAddModalVisible] = useState(false)
+  const [addMode, setAddMode] = useState<'manual' | 'range'>('manual')
+  const [rollInput, setRollInput] = useState('')
+  const [startRoll, setStartRoll] = useState('')
+  const [endRoll, setEndRoll] = useState('')
+  const [previewRolls, setPreviewRolls] = useState<string[]>([])
+  const [adding, setAdding] = useState(false)
+
+  function closeAddModal() {
+    setAddModalVisible(false)
+    setAddMode('manual')
+    setRollInput('')
+    setStartRoll('')
+    setEndRoll('')
+    setPreviewRolls([])
+  }
+
+  function handlePreviewRange() {
+    const s = startRoll.trim().toUpperCase()
+    const e = endRoll.trim().toUpperCase()
+    if (!s || !e) {
+      Alert.alert('Missing Input', 'Enter both start and end roll numbers.')
+      return
+    }
+    const rolls = generateRollRange(s, e)
+    if (rolls.length === 0) {
+      Alert.alert('Invalid Range', 'Start roll must come before end roll.')
+      return
+    }
+    setPreviewRolls(rolls)
+  }
+
+  async function handleAddMembers() {
+    if (!classId) return
+
+    let rolls: string[] = []
+    if (addMode === 'manual') {
+      rolls = rollInput
+        .split(/[\n,]+/)
+        .map(r => r.trim().toUpperCase())
+        .filter(r => r.length > 0)
+    } else {
+      if (previewRolls.length === 0) {
+        Alert.alert('Preview First', 'Tap "Preview Range" before adding.')
+        return
+      }
+      rolls = previewRolls
+    }
+
+    if (rolls.length === 0) {
+      Alert.alert('Empty', 'Enter at least one roll number.')
+      return
+    }
+
+    try {
+      setAdding(true)
+      const result = await addCustomClassMembers(classId, rolls)
+      closeAddModal()
+      await loadMembers()
+
+      const lines: string[] = []
+      if (result.added > 0) lines.push(`✓ ${result.added} member(s) added`)
+      if (result.skipped_same_class > 0) lines.push(`• ${result.skipped_same_class} already in this class`)
+      if (result.skipped_other_class > 0) {
+        lines.push(
+          `• ${result.skipped_other_class} active in another class:\n  ${result.other_class_conflicts.join(', ')}`
+        )
+      }
+      Alert.alert(
+        result.added > 0 ? 'Members Added' : 'No Members Added',
+        lines.join('\n') || 'Nothing to add.'
+      )
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Could not add members. Please try again.')
+    } finally {
+      setAdding(false)
+    }
+  }
+
   const loadMembers = useCallback(async () => {
     if (!classId) return
 
@@ -314,8 +485,8 @@ function ClassMembersTab() {
     } catch (e: any) {
       const userMsg =
         e?.code?.startsWith('PGRST') ||
-        e?.code?.startsWith('42') ||
-        e?.code?.startsWith('23')
+          e?.code?.startsWith('42') ||
+          e?.code?.startsWith('23')
           ? 'Something went wrong. Please try again.'
           : e?.message ?? 'An unexpected error occurred.'
 
@@ -371,8 +542,8 @@ function ClassMembersTab() {
             } catch (e: any) {
               const userMsg =
                 e?.code?.startsWith('PGRST') ||
-                e?.code?.startsWith('42') ||
-                e?.code?.startsWith('23')
+                  e?.code?.startsWith('42') ||
+                  e?.code?.startsWith('23')
                   ? 'Something went wrong. Please try again.'
                   : e?.message ?? 'An unexpected error occurred.'
 
@@ -449,6 +620,14 @@ function ClassMembersTab() {
         <Text style={styles.membersInfoText}>
           Long-press a joined student to assign them as {myRole}.
         </Text>
+        <TouchableOpacity
+          style={styles.addMembersBtn}
+          onPress={() => setAddModalVisible(true)}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="person-add-outline" size={15} color={COLORS.primary} />
+          <Text style={styles.addMembersBtnText}>Add Members</Text>
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -458,6 +637,110 @@ function ClassMembersTab() {
         contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       />
+
+      <Modal
+        visible={addModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={closeAddModal}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Add Class Members</Text>
+
+            <View style={styles.modePills}>
+              <TouchableOpacity
+                style={[styles.modePill, addMode === 'manual' && styles.modePillActive]}
+                onPress={() => setAddMode('manual')}
+              >
+                <Text style={[styles.modePillText, addMode === 'manual' && styles.modePillTextActive]}>
+                  Manual
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modePill, addMode === 'range' && styles.modePillActive]}
+                onPress={() => setAddMode('range')}
+              >
+                <Text style={[styles.modePillText, addMode === 'range' && styles.modePillTextActive]}>
+                  Range
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {addMode === 'manual' ? (
+              <>
+                <Text style={styles.modalHint}>
+                  Enter roll numbers separated by commas or new lines.
+                </Text>
+                <TextInput
+                  style={styles.modalTextArea}
+                  value={rollInput}
+                  onChangeText={t => setRollInput(t.toUpperCase())}
+                  placeholder={'25ECE04200\n25ECE04201, 25ECE04202'}
+                  placeholderTextColor={COLORS.textMuted}
+                  multiline
+                  numberOfLines={5}
+                  autoCapitalize="characters"
+                  textAlignVertical="top"
+                />
+              </>
+            ) : (
+              <>
+                <Text style={styles.modalHint}>
+                  Enter start and end roll numbers to generate a range.
+                </Text>
+                <View style={styles.rangeRow}>
+                  <TextInput
+                    style={[styles.modalInput, { flex: 1 }]}
+                    value={startRoll}
+                    onChangeText={t => { setStartRoll(t.toUpperCase()); setPreviewRolls([]) }}
+                    placeholder="Start roll"
+                    placeholderTextColor={COLORS.textMuted}
+                    autoCapitalize="characters"
+                  />
+                  <Text style={styles.rangeDash}>→</Text>
+                  <TextInput
+                    style={[styles.modalInput, { flex: 1 }]}
+                    value={endRoll}
+                    onChangeText={t => { setEndRoll(t.toUpperCase()); setPreviewRolls([]) }}
+                    placeholder="End roll"
+                    placeholderTextColor={COLORS.textMuted}
+                    autoCapitalize="characters"
+                  />
+                </View>
+                <TouchableOpacity style={styles.previewBtn} onPress={handlePreviewRange}>
+                  <Text style={styles.previewBtnText}>Preview Range</Text>
+                </TouchableOpacity>
+                {previewRolls.length > 0 && (
+                  <Text style={styles.previewCount}>
+                    {previewRolls.length} roll number(s) will be added
+                  </Text>
+                )}
+              </>
+            )}
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={closeAddModal} disabled={adding}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalAddBtn, adding && { opacity: 0.6 }]}
+                onPress={handleAddMembers}
+                disabled={adding}
+              >
+                {adding
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={styles.modalAddText}>Add</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   )
 }
@@ -825,5 +1108,213 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 12,
     color: COLORS.textSecondary,
+  },
+
+  addMembersBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+    alignSelf: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary + '10',
+  },
+  addMembersBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  modalSheet: {
+    backgroundColor: COLORS.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 36,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.border,
+    alignSelf: 'center',
+    marginBottom: 18,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    marginBottom: 16,
+  },
+  modePills: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  modePill: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+  },
+  modePillActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  modePillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  modePillTextActive: {
+    color: '#fff',
+  },
+  modalHint: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginBottom: 10,
+  },
+  modalTextArea: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: COLORS.textPrimary,
+    minHeight: 110,
+  },
+  rangeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  modalInput: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: COLORS.textPrimary,
+  },
+  rangeDash: {
+    fontSize: 16,
+    color: COLORS.textMuted,
+  },
+  previewBtn: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: COLORS.primary + '15',
+    borderWidth: 1,
+    borderColor: COLORS.primary + '40',
+  },
+  previewBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  previewCount: {
+    marginTop: 8,
+    fontSize: 13,
+    color: COLORS.success,
+    fontWeight: '600',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+  },
+  modalCancelText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  modalAddBtn: {
+    flex: 2,
+    paddingVertical: 13,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+  },
+  modalAddText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
+  },
+
+  csvHint: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    lineHeight: 17,
+    marginBottom: 12,
+  },
+  csvEmpty: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 12,
+  },
+  csvRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border + '60',
+  },
+  csvRowLeft: {
+    flex: 1,
+  },
+  csvRowLabel: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+  },
+  csvRowMeta: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  csvBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary,
+  },
+  csvBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#fff',
   },
 })

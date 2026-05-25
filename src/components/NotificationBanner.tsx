@@ -10,7 +10,7 @@ const AUTO_HIDE_MS = 4000
 export const NotificationBanner: React.FC = () => {
   const { banner, isVisible, hideBanner } = useNotificationBannerStore()
   const translateY = useRef(new Animated.Value(-BANNER_HEIGHT - 20)).current
-  const opacity    = useRef(new Animated.Value(0)).current
+  const opacity = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
     if (isVisible && banner) {
@@ -58,7 +58,7 @@ export const NotificationBanner: React.FC = () => {
     hideBanner()
     try {
       navigateTo('Notifications')
-    } catch {}
+    } catch { }
   }
 
   if (!banner) return null

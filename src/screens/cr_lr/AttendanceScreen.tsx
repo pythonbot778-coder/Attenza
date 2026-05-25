@@ -12,6 +12,7 @@ import {
     getMembersForClass,
     getMembersForBatch,
     saveAttendanceSession,
+    semesterLabel,
     ClassMember,
 } from '../../api/attendanceApi'
 import { getDisplayRoll } from '../../utils/rollNumberUtils'
@@ -158,7 +159,12 @@ export function AttendanceScreen() {
         try {
             let list: ClassMember[]
             if (selectedBatch) {
-                list = await getMembersForBatch(classId, selectedBatch.start_roll, selectedBatch.end_roll)
+                list = await getMembersForBatch(
+                    classId,
+                    selectedBatch.id ?? null,
+                    selectedBatch.start_roll,
+                    selectedBatch.end_roll,
+                )
             } else {
                 list = await getMembersForClass(classId)
             }
@@ -220,6 +226,7 @@ export function AttendanceScreen() {
                 batchName:    selectedBatch ? selectedBatch.batch_name : null,
                 dateSelected: selectedDate,
                 takenBy:      userId,
+                semesterLabel: semesterLabel(Number(year) || 0, Number(semester) || 0),
                 records,
             })
 

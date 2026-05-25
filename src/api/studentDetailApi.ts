@@ -48,18 +48,45 @@ export async function getStudentSubjectSessions(
 
     if (batchError) throw batchError
 
-    const myRollNum = rollToNum(member.roll_number)
+    const batches = labBatches ?? []
+    const batchIds = batches.map((b: any) => b.id)
 
-    const myBatch = (labBatches ?? []).find((b: any) => {
-      const start = rollToNum(b.start_roll)
-      const end = rollToNum(b.end_roll)
-      return myRollNum >= start && myRollNum <= end
-    })
+    // Manual membership for THIS subject's batches
+    let manualBatchId: string | null = null
+    if (batchIds.length > 0) {
+      const { data: manual, error: manualError } = await supabase
+        .from('lab_batch_members')
+        .select('lab_batch_id')
+        .eq('class_member_id', member.id)
+        .in('lab_batch_id', batchIds)
+        .maybeSingle()
+      if (manualError) throw manualError
+      manualBatchId = (manual as any)?.lab_batch_id ?? null
+    }
 
-    myBatchName = myBatch?.batch_name ?? null
+    if (manualBatchId) {
+      const manualBatch = batches.find((b: any) => b.id === manualBatchId)
+      myBatchName = manualBatch?.batch_name ?? null
+    } else {
+      const myRollNum = rollToNum(member.roll_number)
+      const myBatch = batches.find((b: any) => {
+        const start = rollToNum(b.start_roll)
+        const end = rollToNum(b.end_roll)
+        return myRollNum >= start && myRollNum <= end
+      })
+      myBatchName = myBatch?.batch_name ?? null
+    }
   }
 
-  const { data, error } = await supabase
+  // Current semester label of the class — keep archived sessions out of student views
+  const { data: cg } = await supabase
+    .from('class_groups')
+    .select('year, semester')
+    .eq('id', member.class_id)
+    .maybeSingle()
+  const currentSemLabel = cg ? `Y${cg.year}S${cg.semester}` : null
+
+  let sessionsQuery = supabase
     .from('attendance_sessions')
     .select(`
       id,
@@ -71,6 +98,12 @@ export async function getStudentSubjectSessions(
     .eq('class_id', member.class_id)
     .eq('subject_id', subjectId)
     .order('date_selected', { ascending: false })
+
+  if (currentSemLabel) {
+    sessionsQuery = sessionsQuery.eq('semester_label', currentSemLabel)
+  }
+
+  const { data, error } = await sessionsQuery
 
   if (error) throw error
 

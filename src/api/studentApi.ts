@@ -41,6 +41,14 @@ export async function getStudentDashboard(userId: string): Promise<StudentDashbo
   if (!member?.class_id) throw new Error('No active class found')
   if (!member?.roll_number) throw new Error('No roll number found for student')
 
+  // Current semester label of the class — used to filter out archived sessions
+  const { data: cg } = await supabase
+    .from('class_groups')
+    .select('year, semester')
+    .eq('id', member.class_id)
+    .maybeSingle()
+  const currentSemLabel = cg ? `Y${cg.year}S${cg.semester}` : null
+
   const { data: subjects, error: subjectError } = await supabase
     .from('subjects')
     .select('id, name, faculty_name, type')
@@ -55,7 +63,16 @@ export async function getStudentDashboard(userId: string): Promise<StudentDashbo
 
   if (batchError) throw batchError
 
-  const { data: sessions, error: sessionsError } = await supabase
+  // Manual lab batch memberships for this student
+  const { data: manualBatches, error: manualError } = await supabase
+    .from('lab_batch_members')
+    .select('lab_batch_id')
+    .eq('class_member_id', member.id)
+
+  if (manualError) throw manualError
+  const manualBatchIds = new Set((manualBatches ?? []).map((r: any) => r.lab_batch_id as string))
+
+  let sessionsQuery = supabase
     .from('attendance_sessions')
     .select(`
       id,
@@ -66,6 +83,12 @@ export async function getStudentDashboard(userId: string): Promise<StudentDashbo
     `)
     .eq('class_id', member.class_id)
 
+  if (currentSemLabel) {
+    sessionsQuery = sessionsQuery.eq('semester_label', currentSemLabel)
+  }
+
+  const { data: sessions, error: sessionsError } = await sessionsQuery
+
   if (sessionsError) throw sessionsError
 
   const subjectsList = subjects ?? []
@@ -74,6 +97,12 @@ export async function getStudentDashboard(userId: string): Promise<StudentDashbo
   const myRollNum = rollToNum(member.roll_number)
 
   function getStudentBatchName(subjectId: string): string | null {
+    // Prefer explicit manual assignment over range matching
+    const manualBatch = batchesList.find((b: any) =>
+      b.subject_id === subjectId && manualBatchIds.has(b.id)
+    )
+    if (manualBatch) return manualBatch.batch_name
+
     const batch = batchesList.find((b: any) => {
       if (b.subject_id !== subjectId) return false
       const start = rollToNum(b.start_roll)

@@ -10,6 +10,9 @@ import { COLORS } from '../../constants/colors'
 import { useAuthStore } from '../../store/authStore'
 import { getSubjectsByClass } from '../../api/subjectApi'
 import { HomeStackParams } from '../../navigation/CRNavigator'
+import { semesterLabel } from '../../api/attendanceApi'
+import { syncPromotionState, dismissReminder } from '../../utils/promotionTracker'
+import { PromotionReminderModal } from '../../components/PromotionReminderModal'
 
 type Subject = {
   id: string
@@ -84,6 +87,34 @@ export function HomeScreen() {
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+
+  const [reminderVisible, setReminderVisible] = useState(false)
+  const [reminderLabel, setReminderLabel] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!classId || year == null || semester == null) return
+    const curLabel = semesterLabel(Number(year), Number(semester))
+    syncPromotionState(classId, curLabel).then((pending) => {
+      if (pending) {
+        setReminderLabel(pending.label)
+        setReminderVisible(true)
+      }
+    }).catch(() => {})
+  }, [classId, year, semester])
+
+  async function handleReminderClose() {
+    setReminderVisible(false)
+    if (classId) await dismissReminder(classId)
+  }
+
+  function handleReminderDownload() {
+    setReminderVisible(false)
+    // HomeScreen is inside HomeStackNavigator → CRNavigator (tab). Jump to ProfileTab.
+    const parent = navigation.getParent()
+    if (parent) {
+      parent.navigate('ProfileTab' as any)
+    }
+  }
 
   async function loadSubjects() {
     if (!classId) return
@@ -226,6 +257,13 @@ export function HomeScreen() {
       >
         <Text style={styles.fabText}>＋</Text>
       </TouchableOpacity>
+
+      <PromotionReminderModal
+        visible={reminderVisible}
+        archivedLabel={reminderLabel}
+        onDownload={handleReminderDownload}
+        onClose={handleReminderClose}
+      />
     </View>
   )
 }

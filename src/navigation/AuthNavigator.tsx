@@ -5,11 +5,13 @@ import { OTPScreen } from '../screens/auth/OTPScreen'
 import { PasswordSetupScreen } from '../screens/auth/PasswordSetupScreen'
 import { ProfileSetupScreen } from '../screens/auth/ProfileSetupScreen'
 import { RollRangeSetupScreen } from '../screens/auth/RollRangeSetupScreen'
+import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen'
+import { ChangePasswordScreen } from '../screens/auth/ChangePasswordScreen'
 import { useAuthStore } from '../store/authStore'
 
 export type AuthStackParams = {
   Login: undefined
-  OTP: { email: string }
+  OTP: { email: string; purpose: 'otp_login' | 'forgot_password' }
   PasswordSetup: { email: string }
   ProfileSetup: undefined
   RollRangeSetup: {
@@ -21,6 +23,8 @@ export type AuthStackParams = {
     name: string
     rollNumber: string
   }
+  ForgotPassword: undefined
+  ChangePassword: { email: string }
 }
 
 const Stack = createStackNavigator<AuthStackParams>()
@@ -47,6 +51,8 @@ export function AuthNavigator() {
       <Stack.Screen name="PasswordSetup" component={PasswordSetupScreen} />
       <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
       <Stack.Screen name="RollRangeSetup" component={RollRangeSetupScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
     </Stack.Navigator>
   )
 }

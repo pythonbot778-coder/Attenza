@@ -10,6 +10,7 @@ export type AuthStep =
   | 'OTP_VERIFIED'
   | 'PASSWORD_SET'
   | 'ONBOARDED'
+  | 'FORGOT_PASSWORD_OTP_VERIFIED'
 
 type AuthState = {
   userId: string | null
@@ -212,6 +213,15 @@ supabase.auth.onAuthStateChange((event, session) => {
     event === 'USER_UPDATED'
   ) {
     if (session?.user) {
+      // While the user is in the password-recovery flow, suppress all auto-hydration.
+      // Both SIGNED_IN (from verifyOtp) and USER_UPDATED (from updateUser) fire here.
+      // We must not route the user into the app until they have set a new password.
+      const currentStep = useAuthStore.getState().authStep
+      logger.log('auth event handler — currentStep:', currentStep, 'event:', event)
+      if (currentStep === 'FORGOT_PASSWORD_OTP_VERIFIED') {
+        logger.log('auth event suppressed — password recovery in progress')
+        return
+      }
       useAuthStore.getState().setUser({ isLoading: true })
       hydrateAuthState()
     } else {

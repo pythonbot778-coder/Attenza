@@ -172,3 +172,93 @@ export async function adminDeleteSession(sessionId: string): Promise<void> {
 export async function adminRetrySync(syncId: string): Promise<void> {
   return rpc('retry_sync', { p_sync_id: syncId })
 }
+
+// ─── Academic management (promote / demote / manual edit) ─────────────
+
+export interface PromoteDemoteResult {
+  class_id: string
+  from_year: number
+  from_sem: number
+  to_year: number
+  to_sem: number
+}
+
+export interface YearBulkResult {
+  promoted?: number
+  demoted?: number
+  failed: number
+  errors: { class_id: string; error: string }[]
+}
+
+export async function adminPromoteClass(
+  classId: string,
+  adminId: string
+): Promise<PromoteDemoteResult> {
+  const { data, error } = await supabase.rpc('promote_class', {
+    p_from_class_id: classId,
+    p_admin_id: adminId,
+  })
+  if (error) throw error
+  return data as PromoteDemoteResult
+}
+
+export async function adminDemoteClass(
+  classId: string,
+  adminId: string
+): Promise<PromoteDemoteResult> {
+  const { data, error } = await supabase.rpc('demote_class', {
+    p_from_class_id: classId,
+    p_admin_id: adminId,
+  })
+  if (error) throw error
+  return data as PromoteDemoteResult
+}
+
+export async function adminPromoteYear(
+  year: number,
+  adminId: string
+): Promise<YearBulkResult> {
+  const { data, error } = await supabase.rpc('promote_year', {
+    p_year: year,
+    p_admin_id: adminId,
+  })
+  if (error) throw error
+  return data as YearBulkResult
+}
+
+export async function adminDemoteYear(
+  year: number,
+  adminId: string
+): Promise<YearBulkResult> {
+  const { data, error } = await supabase.rpc('demote_year', {
+    p_year: year,
+    p_admin_id: adminId,
+  })
+  if (error) throw error
+  return data as YearBulkResult
+}
+
+export interface EditClassAcademicResult {
+  class_id: string
+  year: number
+  semester: number
+  section: string
+}
+
+export async function adminEditClassAcademic(
+  classId: string,
+  year: number,
+  semester: number,
+  section: string,
+  adminId: string,
+): Promise<EditClassAcademicResult> {
+  const { data, error } = await supabase.rpc('edit_class_academic', {
+    p_class_id: classId,
+    p_year: year,
+    p_semester: semester,
+    p_section: section,
+    p_admin_id: adminId,
+  })
+  if (error) throw error
+  return data as EditClassAcademicResult
+}
