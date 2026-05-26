@@ -18,6 +18,37 @@ import {
 } from '../../api/adminApi'
 import { useAuthStore } from '../../store/authStore'
 import { BroadcastModal } from '../shared/BroadcastModal'
+import { getClassPushTokens } from '../../api/notificationApi'
+import { sendPushNotifications } from '../../utils/notificationUtils'
+
+/** Fire a promotion/demotion push for one class. Non-blocking — errors are swallowed. */
+async function firePromotionPush(
+    classId: string,
+    branch: string,
+    section: string,
+    toYear: number,
+    toSem: number,
+    action: 'promoted' | 'demoted',
+): Promise<void> {
+    try {
+        const tokens = await getClassPushTokens(classId)
+        if (tokens.length === 0) return
+        const title = action === 'promoted' ? 'Class Promoted' : 'Class Demoted'
+        const body  = `${branch} §${section} is now Y${toYear} S${toSem}. ${
+            action === 'promoted'
+                ? 'Previous semester attendance is archived — CR/LR can download the CSV from Profile.'
+                : 'Previous semester data has been restored.'
+        }`
+        await sendPushNotifications({
+            title, body, classId,
+            type: 'promotion',
+            tokens,
+            data: { kind: 'promotion', action, toYear, toSem },
+        })
+    } catch {
+        // best-effort — in-app notification still arrives via DB trigger
+    }
+}
 
 const YEARS = [1, 2, 3, 4]
 const SEMS  = [1, 2]
@@ -132,6 +163,8 @@ export function AdminClassDetailScreen() {
             setAcademicBusy(true)
             const result = await adminPromoteClass(classId, userId)
             applyAcademic(result.to_year, result.to_sem, parsed.section)
+            // Fire push to class — in-app notification row inserted by the RPC itself.
+            firePromotionPush(classId, parsed.branch, parsed.section, result.to_year, result.to_sem, 'promoted')
             Alert.alert('Promoted', `Now at Y${result.to_year} S${result.to_sem}.`)
         } catch (e: any) {
             Alert.alert('Error', e?.message ?? 'Promotion failed.')
@@ -146,6 +179,7 @@ export function AdminClassDetailScreen() {
             setAcademicBusy(true)
             const result = await adminDemoteClass(classId, userId)
             applyAcademic(result.to_year, result.to_sem, parsed.section)
+            firePromotionPush(classId, parsed.branch, parsed.section, result.to_year, result.to_sem, 'demoted')
             Alert.alert('Demoted', `Now at Y${result.to_year} S${result.to_sem}.`)
         } catch (e: any) {
             Alert.alert('Error', e?.message ?? 'Demotion failed.')

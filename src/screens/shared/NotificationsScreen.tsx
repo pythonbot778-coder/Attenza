@@ -18,6 +18,7 @@ function fmtDateTime(iso: string): string {
 const TYPE_META: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; label: string }> = {
   attendance: { icon: 'checkmark-circle-outline', color: COLORS.present, label: 'Attendance' },
   broadcast:  { icon: 'megaphone-outline',         color: COLORS.primary, label: 'Announcement' },
+  promotion:  { icon: 'trending-up-outline',       color: COLORS.success, label: 'Promotion' },
 }
 
 export function NotificationsScreen() {

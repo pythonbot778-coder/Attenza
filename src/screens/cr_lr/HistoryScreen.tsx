@@ -97,7 +97,7 @@ const SessionCard = React.memo(function SessionCard({
 
 export function HistoryScreen() {
     const navigation = useNavigation<StackNavigationProp<HistoryStackParams>>()
-    const { classId } = useAuthStore()
+    const { classId, year, semester } = useAuthStore()
 
     const [sessions, setSessions] = useState<SessionSummary[]>([])
     const [loading, setLoading] = useState(true)
@@ -108,7 +108,8 @@ export function HistoryScreen() {
         if (!classId) return
         setLoading(true)
         try {
-            const data = await getSessionHistory(classId)
+            const semLabel = year != null && semester != null ? `Y${year}S${semester}` : undefined
+            const data = await getSessionHistory(classId, semLabel)
             setSessions(data)
         } catch (err: any) {
             const userMsg =

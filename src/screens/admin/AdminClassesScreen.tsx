@@ -11,8 +11,46 @@ import {
     getAllClasses, adminPromoteYear, adminDemoteYear,
     AdminClass,
 } from '../../api/adminApi'
+import { getClassPushTokens } from '../../api/notificationApi'
+import { sendPushNotifications } from '../../utils/notificationUtils'
 import { useAuthStore } from '../../store/authStore'
 import { AdminClassStackParams } from '../../navigation/AdminNavigator'
+
+/**
+ * Fire promotion/demotion push notifications for every class that successfully moved.
+ * In-app notification rows are inserted by the RPC itself; this only handles push delivery.
+ * Best-effort — errors are swallowed so partial push failures don't fail the bulk action.
+ */
+async function fireBulkPromotionPushes(
+    classIds: string[],
+    classLookup: Map<string, AdminClass>,
+    action: 'promoted' | 'demoted',
+    toYear: number,
+    toSem: number,
+): Promise<void> {
+    await Promise.all(classIds.map(async (classId) => {
+        try {
+            const c = classLookup.get(classId)
+            if (!c) return
+            const tokens = await getClassPushTokens(classId)
+            if (tokens.length === 0) return
+            const title = action === 'promoted' ? 'Class Promoted' : 'Class Demoted'
+            const body  = `${c.branch} §${c.section} is now Y${toYear} S${toSem}. ${
+                action === 'promoted'
+                    ? 'Previous semester attendance is archived.'
+                    : 'Previous semester data has been restored.'
+            }`
+            await sendPushNotifications({
+                title, body, classId,
+                type: 'promotion',
+                tokens,
+                data: { kind: 'promotion', action, toYear, toSem },
+            })
+        } catch {
+            // best-effort
+        }
+    }))
+}
 
 type Nav = StackNavigationProp<AdminClassStackParams, 'AdminClassesList'>
 
@@ -86,11 +124,26 @@ export function AdminClassesScreen() {
         if (!userId) return
         try {
             setBusyYear(year)
+            // Snapshot the affected classes BEFORE the RPC so we can fire pushes for the
+            // exact set that successfully promoted (matched to the IDs the RPC returns).
+            const lookup = new Map(classes.filter(c => c.year === year).map(c => [c.id, c]))
             const result = await adminPromoteYear(year, userId)
             const failedNote = result.failed > 0
                 ? `\n\n${result.failed} class(es) failed:\n${result.errors.slice(0, 3).map(e => '• ' + e.error).join('\n')}`
                 : ''
             Alert.alert('Promoted', `${result.promoted ?? 0} class(es) promoted.${failedNote}`)
+            // Fire pushes for each class that actually moved. Promoted classes in this
+            // bulk land at the same target (year+1, S1) or (same year, S2) depending on
+            // their source semester, so per-class lookup gives the right toYear/toSem.
+            if (result.promoted_class_ids && result.promoted_class_ids.length > 0) {
+                result.promoted_class_ids.forEach((id) => {
+                    const c = lookup.get(id)
+                    if (!c) return
+                    const toYear = c.semester === 1 ? c.year : c.year + 1
+                    const toSem  = c.semester === 1 ? 2 : 1
+                    fireBulkPromotionPushes([id], lookup, 'promoted', toYear, toSem)
+                })
+            }
             await load(true)
         } catch (e: any) {
             Alert.alert('Error', e?.message ?? 'Promotion failed.')
@@ -103,11 +156,21 @@ export function AdminClassesScreen() {
         if (!userId) return
         try {
             setBusyYear(year)
+            const lookup = new Map(classes.filter(c => c.year === year).map(c => [c.id, c]))
             const result = await adminDemoteYear(year, userId)
             const failedNote = result.failed > 0
                 ? `\n\n${result.failed} class(es) failed:\n${result.errors.slice(0, 3).map(e => '• ' + e.error).join('\n')}`
                 : ''
             Alert.alert('Demoted', `${result.demoted ?? 0} class(es) demoted.${failedNote}`)
+            if (result.demoted_class_ids && result.demoted_class_ids.length > 0) {
+                result.demoted_class_ids.forEach((id) => {
+                    const c = lookup.get(id)
+                    if (!c) return
+                    const toYear = c.semester === 2 ? c.year : c.year - 1
+                    const toSem  = c.semester === 2 ? 1 : 2
+                    fireBulkPromotionPushes([id], lookup, 'demoted', toYear, toSem)
+                })
+            }
             await load(true)
         } catch (e: any) {
             Alert.alert('Error', e?.message ?? 'Demotion failed.')

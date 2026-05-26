@@ -8,6 +8,7 @@ import { HomeStackParams } from '../../navigation/CRNavigator'
 import { COLORS } from '../../constants/colors'
 import { getDisplayRoll } from '../../utils/rollNumberUtils'
 import { getSubjectStats, SubjectStats } from '../../api/statsApi'
+import { useAuthStore } from '../../store/authStore'
 
 type StatsRoute = RouteProp<HomeStackParams, 'SubjectStats'>
 type StatsNav = StackNavigationProp<HomeStackParams, 'SubjectStats'>
@@ -42,6 +43,12 @@ export function SubjectStatsScreen() {
     const isLab = type === 'LAB'
     const batchList = isLab && batches ? batches : []
 
+    const { year, semester } = useAuthStore()
+    const semLabel = useMemo(
+        () => (year != null && semester != null ? `Y${year}S${semester}` : undefined),
+        [year, semester],
+    )
+
     const [activeTab, setActiveTab] = useState<TabType>('overview')
     const [selectedBatch, setSelectedBatch] = useState<string | null>(isLab && batchList.length > 0 ? batchList[0].batch_name : null)
     const [stats, setStats] = useState<SubjectStats | null>(null)
@@ -50,7 +57,7 @@ export function SubjectStatsScreen() {
     const loadStats = useCallback(async () => {
         setLoading(true)
         try {
-            const data = await getSubjectStats(subjectId, selectedBatch)
+            const data = await getSubjectStats(subjectId, selectedBatch, semLabel)
             setStats(data)
         } catch (err: any) {
             const userMsg =
@@ -63,7 +70,7 @@ export function SubjectStatsScreen() {
         } finally {
             setLoading(false)
         }
-    }, [subjectId, selectedBatch])
+    }, [subjectId, selectedBatch, semLabel])
 
     useFocusEffect(useCallback(() => { loadStats() }, [loadStats]))
 

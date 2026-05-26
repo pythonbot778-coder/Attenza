@@ -1,4 +1,8 @@
-import * as FileSystem from 'expo-file-system'
+// expo-file-system v19 split: the top-level export is the new Paths/File API,
+// which does not expose `documentDirectory` / `cacheDirectory` as strings.
+// The string-based API moved to the `/legacy` subpath. That's why the original
+// import returned `undefined` and triggered "No writable directory available".
+import * as FileSystem from 'expo-file-system/legacy'
 import * as Sharing from 'expo-sharing'
 import { getSemesterCsvData, SemesterCsvData } from '../api/attendanceApi'
 
@@ -126,12 +130,12 @@ export async function exportSemesterCsv(
     new Date().toISOString().slice(0, 10),
   ].filter(Boolean).join('_') + '.csv'
 
-  const dir = (FileSystem as any).cacheDirectory ?? (FileSystem as any).documentDirectory
+  const dir = FileSystem.documentDirectory ?? FileSystem.cacheDirectory
   if (!dir) throw new Error('No writable filesystem directory available')
   const uri = `${dir}${filename}`
 
   await FileSystem.writeAsStringAsync(uri, csv, {
-    encoding: (FileSystem as any).EncodingType?.UTF8 ?? 'utf8',
+    encoding: FileSystem.EncodingType.UTF8,
   })
 
   if (await Sharing.isAvailableAsync()) {

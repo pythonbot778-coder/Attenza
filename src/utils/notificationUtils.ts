@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications'
 import * as Device from 'expo-device'
 import { Platform } from 'react-native'
-import { registerPushToken, logNotification } from '../api/notificationApi'
+import { registerPushToken, logNotification, NotificationType } from '../api/notificationApi'
 import { navigateTo } from '../navigation/navigationRef'
 import { useNotificationBannerStore } from '../store/notificationBannerStore'
 
@@ -77,7 +77,7 @@ export interface PushPayload {
   title: string
   body: string
   classId: string
-  type: 'attendance' | 'broadcast'
+  type: NotificationType
   tokens: string[]
   data?: Record<string, any>
 }

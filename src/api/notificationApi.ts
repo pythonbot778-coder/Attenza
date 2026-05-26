@@ -1,8 +1,11 @@
 import { supabase } from './supabase'
+import { logger } from '../utils/logger'
+
+export type NotificationType = 'attendance' | 'broadcast' | 'promotion'
 
 export interface ClassNotification {
   id: string
-  type: 'attendance' | 'broadcast'
+  type: NotificationType
   title: string
   body: string
   sent_count: number
@@ -30,12 +33,13 @@ export async function registerPushToken(token: string, platform: 'ios' | 'androi
 
 export async function getClassPushTokens(classId: string): Promise<string[]> {
   const data = await rpc<string[] | null>('get_class_push_tokens', { p_class_id: classId })
-  console.log('[Notifications] getClassPushTokens for class', classId, '→', data)
+  // Gated through logger so push tokens never leak in production logs.
+  logger.log('[Notifications] getClassPushTokens for class', classId, '→ count:', data?.length ?? 0)
   return data ?? []
 }
 
 export async function logNotification(
-  classId: string, type: 'attendance' | 'broadcast',
+  classId: string, type: NotificationType,
   title: string, body: string, sentCount: number
 ): Promise<string> {
   return rpc<string>('log_notification', {

@@ -28,7 +28,8 @@ export interface SubjectStats {
 
 export async function getSubjectStats(
   subjectId: string,
-  batchName?: string | null
+  batchName?: string | null,
+  currentSemesterLabel?: string,
 ): Promise<SubjectStats> {
   let query = supabase
     .from('attendance_sessions')
@@ -43,6 +44,8 @@ export async function getSubjectStats(
     .order('date_selected', { ascending: true })
 
   if (batchName) query = query.eq('batch_name', batchName)
+  // Restrict to the active semester so archived data doesn't inflate stats.
+  if (currentSemesterLabel) query = query.eq('semester_label', currentSemesterLabel)
 
   const { data, error } = await query
   if (error) throw error

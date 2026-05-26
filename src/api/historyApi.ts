@@ -18,8 +18,11 @@ export interface SessionSummary {
     }
 }
 
-export async function getSessionHistory(classId: string): Promise<SessionSummary[]> {
-    const { data, error } = await supabase
+export async function getSessionHistory(
+    classId: string,
+    currentSemesterLabel?: string,
+): Promise<SessionSummary[]> {
+    let q = supabase
         .from('attendance_sessions')
         .select(`
       id, date_selected, batch_name, taken_at, is_edited, edited_at,
@@ -28,6 +31,11 @@ export async function getSessionHistory(classId: string): Promise<SessionSummary
     `)
         .eq('class_id', classId)
         .order('date_selected', { ascending: false })
+
+    // When passed, restrict to the active semester — archived sessions are hidden.
+    if (currentSemesterLabel) q = q.eq('semester_label', currentSemesterLabel)
+
+    const { data, error } = await q
 
     if (error) throw error
 
@@ -77,26 +85,15 @@ export async function saveEditedSession(
     sessionId: string,
     records: { classMemberId: string; status: 'present' | 'absent' }[]
 ) {
-    // Update session to mark as edited
-    const { error: sessionError } = await supabase
-        .from('attendance_sessions')
-        .update({
-            is_edited: true,
-            edited_at: new Date().toISOString(),
-        })
-        .eq('id', sessionId)
-
-    if (sessionError) throw sessionError
-
-    // Delete old records and re-insert
-    await supabase.from('attendance_records').delete().eq('session_id', sessionId)
-
-    const rows = records.map((r) => ({
-        session_id: sessionId,
-        class_member_id: r.classMemberId,
-        status: r.status,
-    }))
-
-    const { error: recError } = await supabase.from('attendance_records').insert(rows)
-    if (recError) throw recError
+    // Single transactional RPC: marks session as edited, deletes old records,
+    // inserts new ones — atomically. Prevents the data-loss window where the
+    // delete succeeded but the insert failed (which left a session with zero records).
+    const { error } = await supabase.rpc('save_edited_session', {
+        p_session_id: sessionId,
+        p_records: records.map((r) => ({
+            class_member_id: r.classMemberId,
+            status: r.status,
+        })),
+    })
+    if (error) throw error
 }

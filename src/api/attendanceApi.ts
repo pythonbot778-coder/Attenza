@@ -69,44 +69,29 @@ export async function getMembersForBatch(
 export async function saveAttendanceSession(payload: SaveAttendancePayload) {
     const { subjectId, classId, batchName = null, dateSelected, takenBy, semesterLabel: semLabel, records } = payload
 
-    const { data: session, error: sessionError } = await supabase
-        .from('attendance_sessions')
-        .upsert(
-            {
-                subject_id:     subjectId,
-                class_id:       classId,
-                batch_name:     batchName,
-                date_selected:  dateSelected,
-                taken_by:       takenBy,
-                taken_at:       new Date().toISOString(),
-                semester_label: semLabel,
-            },
-            { onConflict: 'class_id,subject_id,date_selected,batch_name' }
-        )
-        .select('id, taken_at')
-        .single()
+    // Single transactional RPC: looks up / creates the session by full natural key
+    // (including semester_label), takes a row lock, then atomically deletes old
+    // records and inserts new ones. Prevents:
+    //   - silent overwrite across semesters (semester_label is part of lookup)
+    //   - data loss if the app dies between delete and insert (single transaction)
+    //   - duplicate records when two CRs save simultaneously (FOR UPDATE lock)
+    const { data, error } = await supabase.rpc('save_attendance_session', {
+        p_subject_id:     subjectId,
+        p_class_id:       classId,
+        p_batch_name:     batchName,
+        p_date_selected:  dateSelected,
+        p_taken_by:       takenBy,
+        p_semester_label: semLabel,
+        p_records:        records.map((r) => ({
+            class_member_id: r.classMemberId,
+            status:          r.status,
+        })),
+    })
 
-    if (sessionError) throw sessionError
-
-    // Delete existing records for this session (re-save flow)
-    await supabase
-        .from('attendance_records')
-        .delete()
-        .eq('session_id', session.id)
-
-    // Insert fresh records
-    const rows = records.map((r) => ({
-        session_id:      session.id,
-        class_member_id: r.classMemberId,
-        status:          r.status,
-    }))
-
-    const { error: recError } = await supabase
-        .from('attendance_records')
-        .insert(rows)
-
-    if (recError) throw recError
-    return session
+    if (error) throw error
+    // RPC returns { session_id, taken_at } — expose as { id, taken_at } for callers
+    const rpcResult = data as { session_id: string; taken_at: string }
+    return { id: rpcResult.session_id, taken_at: rpcResult.taken_at }
 }
 
 export async function getAttendanceHistory(classId: string, currentSemesterLabel?: string) {

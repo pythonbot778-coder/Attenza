@@ -10,10 +10,13 @@ export interface ClassMemberRow {
 }
 
 export async function getClassMembers(classId: string): Promise<ClassMemberRow[]> {
+  // Only active members — inactive rows are historical (e.g. removed students,
+  // promotion archive) and shouldn't appear in CR/LR member lists or pickers.
   const { data, error } = await supabase
     .from('class_members')
     .select('id, user_id, roll_number, name, role, status')
     .eq('class_id', classId)
+    .eq('status', 'active')
     .order('roll_number', { ascending: true })
 
   if (error) throw error

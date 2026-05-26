@@ -188,6 +188,9 @@ export interface YearBulkResult {
   demoted?: number
   failed: number
   errors: { class_id: string; error: string }[]
+  // Class IDs that successfully moved — used by the client to fire push notifications.
+  promoted_class_ids?: string[]
+  demoted_class_ids?: string[]
 }
 
 export async function adminPromoteClass(

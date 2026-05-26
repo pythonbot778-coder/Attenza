@@ -71,7 +71,7 @@ const HistoryCard = React.memo(function HistoryCard({ item }: { item: SessionSum
 })
 
 export function StudentHistoryScreen() {
-    const { classId } = useAuthStore()
+    const { classId, year, semester } = useAuthStore()
     const [sessions, setSessions] = useState<SessionSummary[]>([])
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
@@ -81,7 +81,8 @@ export function StudentHistoryScreen() {
         if (isRefresh) setRefreshing(true)
         else setLoading(true)
         try {
-            const data = await getSessionHistory(classId)
+            const semLabel = year != null && semester != null ? `Y${year}S${semester}` : undefined
+            const data = await getSessionHistory(classId, semLabel)
             setSessions(data)
         } catch (e: any) {
             const userMsg =
@@ -95,7 +96,7 @@ export function StudentHistoryScreen() {
             setLoading(false)
             setRefreshing(false)
         }
-    }, [classId])
+    }, [classId, year, semester])
 
     useFocusEffect(useCallback(() => { load() }, [load]))
 
