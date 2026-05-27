@@ -29,6 +29,7 @@ import { generateRollRange } from '../../utils/rollNumberUtils'
 import { getArchivedSemesters, semesterLabel } from '../../api/attendanceApi'
 import { exportSemesterCsv } from '../../utils/csvExport'
 import { markCsvDownloaded } from '../../utils/promotionTracker'
+import { VyndraFooter } from '../../components/VyndraFooter'
 
 // ─── Profile Tab ──────────────────────────────────────────────
 function ProfileTab() {
@@ -386,7 +387,8 @@ function ProfileTab() {
         )}
       </TouchableOpacity>
 
-      <View style={{ height: 40 }} />
+      <VyndraFooter showLogo style={{ marginTop: 18 }} />
+      <View style={{ height: 24 }} />
     </ScrollView>
   )
 }
@@ -446,6 +448,13 @@ function ClassMembersTab() {
       rolls = previewRolls
     }
 
+    // Client-side dedupe — catches double-typed rolls (e.g. "25ECE04200, 25ECE04200")
+    // before they go to the RPC, so the result counts reflect what the user actually
+    // intended rather than inflating skipped_same_class.
+    const beforeDedup = rolls.length
+    rolls = Array.from(new Set(rolls))
+    const duplicateCount = beforeDedup - rolls.length
+
     if (rolls.length === 0) {
       Alert.alert('Empty', 'Enter at least one roll number.')
       return
@@ -459,6 +468,7 @@ function ClassMembersTab() {
 
       const lines: string[] = []
       if (result.added > 0) lines.push(`✓ ${result.added} member(s) added`)
+      if (duplicateCount > 0) lines.push(`• ${duplicateCount} duplicate(s) in your input ignored`)
       if (result.skipped_same_class > 0) lines.push(`• ${result.skipped_same_class} already in this class`)
       if (result.skipped_other_class > 0) {
         lines.push(

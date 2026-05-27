@@ -21,7 +21,13 @@ export interface AddLabBatchMembersResult {
   skipped_wrong_class: number
 }
 
-export async function createSubject(payload: CreateSubjectPayload) {
+export interface CreateSubjectResult {
+  id: string
+  /** Per-batch outcome of the manual member attachment step. Empty when type=CLASS. */
+  manualAddIssues: { batchName: string; error: string }[]
+}
+
+export async function createSubject(payload: CreateSubjectPayload): Promise<CreateSubjectResult> {
   const { classId, name, facultyName, type, batches } = payload
 
   // Insert subject
@@ -37,6 +43,8 @@ export async function createSubject(payload: CreateSubjectPayload) {
     .single()
 
   if (error) throw error
+
+  const manualAddIssues: { batchName: string; error: string }[] = []
 
   // Insert lab batches if LAB type
   if (type === 'LAB' && batches && batches.length > 0) {
@@ -54,7 +62,8 @@ export async function createSubject(payload: CreateSubjectPayload) {
 
     if (batchError) throw batchError
 
-    // Attach manual members to each batch (best-effort)
+    // Attach manual members to each batch — best-effort, but report failures so
+    // the caller can surface them instead of pretending everything succeeded.
     if (insertedBatches) {
       for (let i = 0; i < batches.length; i++) {
         const manualIds = batches[i].manualMemberIds ?? []
@@ -62,18 +71,24 @@ export async function createSubject(payload: CreateSubjectPayload) {
         const matchedBatch = insertedBatches.find(
           (b: any) => b.batch_name === batches[i].batchName
         )
-        if (!matchedBatch) continue
+        if (!matchedBatch) {
+          manualAddIssues.push({ batchName: batches[i].batchName, error: 'Batch row not found after insert' })
+          continue
+        }
         try {
           await addLabBatchMembers(matchedBatch.id, manualIds)
-        } catch (e) {
-          // non-fatal — subject + batches are saved; manual additions can be retried later
-          console.warn('addLabBatchMembers failed for batch', matchedBatch.id, e)
+        } catch (e: any) {
+          // Subject + batches are saved; the caller decides whether to alert.
+          manualAddIssues.push({
+            batchName: batches[i].batchName,
+            error: e?.message ?? 'Could not attach manual members',
+          })
         }
       }
     }
   }
 
-  return subject
+  return { id: subject.id, manualAddIssues }
 }
 
 export async function getLabBatchManualMembers(batchId: string) {

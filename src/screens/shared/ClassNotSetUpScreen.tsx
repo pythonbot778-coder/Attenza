@@ -14,6 +14,7 @@ import { useAuthStore, hydrateAuthState } from '../../store/authStore'
 import { COLORS } from '../../constants/colors'
 import { logger } from '../../utils/logger'
 import { validateName, validateRollNumber, validateMobile, check } from '../../utils/validation'
+import { VyndraFooter } from '../../components/VyndraFooter'
 
 export function ClassNotSetUpScreen() {
   const {
@@ -28,6 +29,9 @@ export function ClassNotSetUpScreen() {
   const [syncing, setSyncing] = useState(false)
   const [listening, setListening] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
+  // Tracks the last sync attempt's outcome so the bottom hint can show "Sync failed"
+  // instead of the misleading "Auto-sync enabled" when the realtime claim threw.
+  const [syncError, setSyncError] = useState<string | null>(null)
 
   const [editingName, setEditingName] = useState(false)
   const [editingContact, setEditingContact] = useState(false)
@@ -86,10 +90,14 @@ export function ClassNotSetUpScreen() {
   async function handleRetry() {
     try {
       setSyncing(true)
+      setSyncError(null)
       await claimStudentRow()
+      setSyncError(null)  // success — clear any prior error
     } catch (e: any) {
+      const msg = e?.message ?? 'Unable to sync class right now.'
       logger.log('ClassNotSetUp retry failed', e)
-      Alert.alert('Retry Failed', e?.message ?? 'Unable to sync class right now.')
+      setSyncError(msg)
+      Alert.alert('Retry Failed', msg)
     } finally {
       setSyncing(false)
     }
@@ -202,8 +210,12 @@ export function ClassNotSetUpScreen() {
           logger.log('Class membership change detected', payload)
           try {
             await claimStudentRow(activeRoll)
-          } catch (e) {
+            setSyncError(null)  // success — clear stale error
+          } catch (e: any) {
+            const msg = e?.message ?? 'Auto-sync claim failed.'
             logger.log('Auto sync claim failed', e)
+            setSyncError(msg)
+            // Don't alert here — auto-sync is best-effort; the bottom hint surfaces it.
           }
         }
       )
@@ -366,9 +378,15 @@ export function ClassNotSetUpScreen() {
         )}
       </TouchableOpacity>
 
-      <Text style={styles.hint}>
-        Auto-sync is {listening ? 'enabled' : 'starting'} for roll number {useAuthStore.getState().rollNumber ?? '—'}.
-      </Text>
+      {syncError ? (
+        <Text style={[styles.hint, styles.hintError]}>
+          ⚠ Auto-sync failed: {syncError}{'\n'}Tap "Retry Sync" above to try again.
+        </Text>
+      ) : (
+        <Text style={styles.hint}>
+          Auto-sync is {listening ? 'enabled' : 'starting'} for roll number {useAuthStore.getState().rollNumber ?? '—'}.
+        </Text>
+      )}
 
       <TouchableOpacity
         style={styles.signOutBtn}
@@ -384,6 +402,8 @@ export function ClassNotSetUpScreen() {
       >
         <Text style={styles.signOutText}>Sign Out</Text>
       </TouchableOpacity>
+
+      <VyndraFooter style={{ marginTop: 20 }} />
     </ScrollView>
   )
 }
@@ -534,6 +554,10 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     textAlign: 'center',
     marginBottom: 18,
+  },
+  hintError: {
+    color: COLORS.absent,
+    fontWeight: '600',
   },
   signOutBtn: {
     width: '100%',

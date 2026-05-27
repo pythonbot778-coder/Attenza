@@ -228,6 +228,15 @@ export function AdminClassesScreen() {
     function renderSectionHeader({ section }: { section: { title: string; year: number; data: AdminClass[] } }) {
         const count = section.data.length
         const isBusy = busyYear === section.year
+
+        // Boundary logic:
+        // - Demote disabled when EVERY class in Year 1 is at S1 (nothing to demote)
+        // - Promote disabled when EVERY class in Year 4 is at S2 (nothing to promote)
+        const allAtFloor   = section.year === 1 && section.data.every(c => c.semester === 1)
+        const allAtCeiling = section.year === 4 && section.data.every(c => c.semester === 2)
+        const canDemote  = !allAtFloor
+        const canPromote = !allAtCeiling
+
         return (
             <View style={styles.sectionHeader}>
                 <View style={styles.sectionHeaderLeft}>
@@ -242,20 +251,22 @@ export function AdminClassesScreen() {
                     ) : (
                         <>
                             <TouchableOpacity
-                                style={[styles.yearActionBtn, styles.yearActionDemote]}
-                                onPress={() => confirmDemoteYear(section.year)}
+                                style={[styles.yearActionBtn, styles.yearActionDemote, !canDemote && styles.yearActionDisabled]}
+                                onPress={() => canDemote && confirmDemoteYear(section.year)}
+                                disabled={!canDemote}
                                 activeOpacity={0.85}
                             >
-                                <Ionicons name="arrow-back" size={12} color={COLORS.absent} />
-                                <Text style={[styles.yearActionText, { color: COLORS.absent }]}>Demote</Text>
+                                <Ionicons name="arrow-back" size={12} color={canDemote ? COLORS.absent : COLORS.textMuted} />
+                                <Text style={[styles.yearActionText, { color: canDemote ? COLORS.absent : COLORS.textMuted }]}>Demote</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
-                                style={[styles.yearActionBtn, styles.yearActionPromote]}
-                                onPress={() => confirmPromoteYear(section.year)}
+                                style={[styles.yearActionBtn, styles.yearActionPromote, !canPromote && styles.yearActionDisabled]}
+                                onPress={() => canPromote && confirmPromoteYear(section.year)}
+                                disabled={!canPromote}
                                 activeOpacity={0.85}
                             >
-                                <Ionicons name="arrow-forward" size={12} color="#fff" />
-                                <Text style={[styles.yearActionText, { color: '#fff' }]}>Promote</Text>
+                                <Ionicons name="arrow-forward" size={12} color={canPromote ? '#fff' : COLORS.textMuted} />
+                                <Text style={[styles.yearActionText, { color: canPromote ? '#fff' : COLORS.textMuted }]}>Promote</Text>
                             </TouchableOpacity>
                         </>
                     )}
@@ -363,6 +374,10 @@ const styles = StyleSheet.create({
     yearActionText: {
         fontSize: 11,
         fontWeight: '800',
+    },
+    yearActionDisabled: {
+        backgroundColor: COLORS.borderLight,
+        borderColor: COLORS.border,
     },
     card: {
         backgroundColor: COLORS.surface,

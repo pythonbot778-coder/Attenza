@@ -28,13 +28,42 @@ export function BroadcastModal({ visible, classId, classLabel, onClose }: Props)
   async function handleSend() {
     if (!check(validateTextField(title,   'Title',   { max: 60  }))) return
     if (!check(validateTextField(message, 'Message', { max: 300 }))) return
+
+    // Step 1: fetch recipient count BEFORE asking to confirm — so we can show
+    // an exact count and bail early if no devices are enrolled.
+    setSending(true)
+    let tokens: string[]
+    try {
+      tokens = await getClassPushTokens(classId)
+    } catch (e: any) {
+      setSending(false)
+      Alert.alert('Error', e?.message ?? 'Could not look up recipients.')
+      return
+    }
+
+    if (tokens.length === 0) {
+      setSending(false)
+      Alert.alert('No Recipients', 'No students in this class have push notifications enabled yet.')
+      return
+    }
+
+    // Step 2: confirm with the user — broadcast is destructive in that it can't be undone.
+    setSending(false)
+    Alert.alert(
+      'Send Broadcast?',
+      `Title: ${title.trim()}\n\n` +
+      `Recipients: ${tokens.length} device${tokens.length > 1 ? 's' : ''} in ${classLabel}\n\n` +
+      `This will deliver an immediate push notification and cannot be undone.`,
+      [
+        { text: 'Review', style: 'cancel' },
+        { text: 'Send Now', style: 'default', onPress: () => doSend(tokens) },
+      ]
+    )
+  }
+
+  async function doSend(tokens: string[]) {
     setSending(true)
     try {
-      const tokens = await getClassPushTokens(classId)
-      if (tokens.length === 0) {
-        Alert.alert('No Recipients', 'No students have push notifications enabled.')
-        return
-      }
       const count = await sendPushNotifications({
         title:   title.trim(), body: message.trim(),
         tokens, classId, type: 'broadcast', data: { type: 'broadcast' },

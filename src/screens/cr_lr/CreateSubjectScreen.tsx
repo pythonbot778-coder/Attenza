@@ -124,11 +124,26 @@ export function CreateSubjectScreen({ navigation }: Props) {
     if (type === 'LAB') {
       for (let i = 0; i < 2; i++) {
         const b = batches[i]
-        if (!check(validateRollRange(b.startRoll, b.endRoll))) {
-          // prefix error with batch label
-          const r = validateRollRange(b.startRoll, b.endRoll)
-          Alert.alert(`Batch ${i + 1} Error`, r.error)
+        const hasRange  = b.startRoll.trim() !== '' || b.endRoll.trim() !== ''
+        const hasManual = (b.manualMemberIds?.length ?? 0) > 0
+
+        // Batch must have at least one source of members: a roll range OR manual additions.
+        // A batch with neither is a no-op that will break attendance taking later.
+        if (!hasRange && !hasManual) {
+          Alert.alert(
+            `Batch ${i + 1} is empty`,
+            'Enter a roll range or pick at least one member manually before saving.',
+          )
           isMutating.current = false; return
+        }
+
+        // If a range is entered, validate it. (Manual-only batches skip this check.)
+        if (hasRange) {
+          const r = validateRollRange(b.startRoll, b.endRoll)
+          if (!check(r)) {
+            Alert.alert(`Batch ${i + 1} Error`, r.error)
+            isMutating.current = false; return
+          }
         }
       }
     }
@@ -136,7 +151,7 @@ export function CreateSubjectScreen({ navigation }: Props) {
 
     setLoading(true)
     try {
-      await createSubject({
+      const result = await createSubject({
         classId,
         name:        name.trim(),
         facultyName: faculty.trim(),
@@ -150,7 +165,23 @@ export function CreateSubjectScreen({ navigation }: Props) {
             }))
           : undefined,
       })
-      navigation.goBack()
+
+      // Partial-success surface: subject + batches saved, but one or more manual
+      // member attachments failed. Tell the user so they can re-add from the
+      // class detail screen instead of silently losing the selections.
+      if (result.manualAddIssues.length > 0) {
+        const lines = result.manualAddIssues
+          .map(i => `• ${i.batchName}: ${i.error}`)
+          .join('\n')
+        Alert.alert(
+          'Subject Saved — Manual Members Pending',
+          `The subject and lab batches were created, but some manual member ` +
+          `additions could not be applied:\n\n${lines}\n\nYou can re-add them from the batch later.`,
+          [{ text: 'OK', onPress: () => navigation.goBack() }],
+        )
+      } else {
+        navigation.goBack()
+      }
     } catch (err: any) {
       const userMsg =
         err?.code?.startsWith('PGRST') ||

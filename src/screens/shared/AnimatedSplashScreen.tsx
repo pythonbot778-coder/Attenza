@@ -3,6 +3,7 @@ import {
   Animated, Easing, StyleSheet, View,
   Text, Dimensions, Image,
 } from 'react-native'
+import { VyndraFooter } from '../../components/VyndraFooter'
 
 const { width, height } = Dimensions.get('window')
 
@@ -158,6 +159,11 @@ export function AnimatedSplashScreen({ onFinish }: Props) {
           Attendance That Syncs
         </Animated.Text>
       </Animated.View>
+
+      {/* Vyndra footer — fades in with the rest of the splash */}
+      <Animated.View style={[styles.brandFooter, { opacity: subOpacity }]}>
+        <VyndraFooter light showLogo />
+      </Animated.View>
     </Animated.View>
   )
 }
@@ -263,5 +269,12 @@ const styles = StyleSheet.create({
     fontWeight:  '500',
     color:       '#94A3B8',
     letterSpacing: 0.5,
+  },
+  brandFooter: {
+    position: 'absolute',
+    bottom:   28,
+    left:     0,
+    right:    0,
+    alignItems: 'center',
   },
 })

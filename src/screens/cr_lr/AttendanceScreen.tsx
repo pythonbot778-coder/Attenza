@@ -200,16 +200,38 @@ export function AttendanceScreen() {
     const absentCount  = members.length - presentCount
     const totalCount   = members.length
 
-    async function handleSave() {
-        if (isMutating.current) return
-        isMutating.current = true
+    function handleSave() {
+        if (isMutating.current || saving) return
         if (!classId || !userId) {
             Alert.alert('Error', 'Session missing. Please restart.')
-            isMutating.current = false
             return
         }
         if (members.length === 0) {
             Alert.alert('No members', 'No students found to mark attendance.')
+            return
+        }
+
+        // Confirmation dialog — clearly state what will be saved + for which date/batch.
+        const dateLabel  = formatDateDisplay(selectedDate)
+        const batchLabel = selectedBatch ? ` · ${selectedBatch.batch_name}` : ''
+        Alert.alert(
+            'Save Attendance?',
+            `${subjectName}${batchLabel}\n${dateLabel}\n\n` +
+            `✓ Present: ${presentCount}\n` +
+            `✗ Absent: ${absentCount}\n` +
+            `Total: ${totalCount}\n\n` +
+            `You can edit this session later from History.`,
+            [
+                { text: 'Review', style: 'cancel' },
+                { text: 'Save', style: 'default', onPress: doSave },
+            ]
+        )
+    }
+
+    async function doSave() {
+        if (isMutating.current) return
+        isMutating.current = true
+        if (!classId || !userId) {
             isMutating.current = false
             return
         }

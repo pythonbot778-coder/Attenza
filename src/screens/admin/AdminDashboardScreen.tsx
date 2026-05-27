@@ -9,6 +9,7 @@ import { COLORS } from '../../constants/colors'
 import { useAuthStore } from '../../store/authStore'
 import { supabase } from '../../api/supabase'
 import { getDashboardStats, AdminStats } from '../../api/adminApi'
+import { VyndraFooter } from '../../components/VyndraFooter'
 
 function StatCard({
     icon, label, value, color,
@@ -124,7 +125,8 @@ export function AdminDashboardScreen() {
                         </View>
                     )}
 
-                    <View style={{ height: 40 }} />
+                    <VyndraFooter showLogo style={{ marginTop: 16 }} />
+                    <View style={{ height: 24 }} />
                 </ScrollView>
             )}
         </View>

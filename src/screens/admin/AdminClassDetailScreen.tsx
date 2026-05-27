@@ -319,42 +319,63 @@ export function AdminClassDetailScreen() {
                     </TouchableOpacity>
                 </View>
 
-                {/* Academic action row */}
-                <View style={styles.academicRow}>
-                    {academicBusy ? (
-                        <View style={styles.academicBusyWrap}>
-                            <ActivityIndicator size="small" color={COLORS.primary} />
-                            <Text style={styles.academicBusyText}>Updating academic details…</Text>
-                        </View>
-                    ) : (
+                {/* Academic action row — promote/demote disabled at boundaries (Y4S2 / Y1S1) */}
+                {(() => {
+                    const canPromote = !(parsed.year === 4 && parsed.semester === 2)
+                    const canDemote  = !(parsed.year === 1 && parsed.semester === 1)
+                    const boundaryHint =
+                        !canPromote ? 'Already at the final semester (Y4 S2) — cannot promote further.' :
+                        !canDemote  ? 'Already at the first semester (Y1 S1) — cannot demote further.' :
+                        null
+
+                    return (
                         <>
-                            <TouchableOpacity
-                                style={[styles.academicBtn, styles.academicBtnDemote]}
-                                onPress={confirmDemoteClass}
-                                activeOpacity={0.85}
-                            >
-                                <Ionicons name="arrow-back" size={14} color={COLORS.absent} />
-                                <Text style={[styles.academicBtnText, { color: COLORS.absent }]}>Demote</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.academicBtn, styles.academicBtnPromote]}
-                                onPress={confirmPromoteClass}
-                                activeOpacity={0.85}
-                            >
-                                <Ionicons name="arrow-forward" size={14} color="#fff" />
-                                <Text style={[styles.academicBtnText, { color: '#fff' }]}>Promote</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.academicBtn, styles.academicBtnEdit]}
-                                onPress={openEdit}
-                                activeOpacity={0.85}
-                            >
-                                <Ionicons name="create-outline" size={14} color={COLORS.primary} />
-                                <Text style={[styles.academicBtnText, { color: COLORS.primary }]}>Edit</Text>
-                            </TouchableOpacity>
+                            <View style={styles.academicRow}>
+                                {academicBusy ? (
+                                    <View style={styles.academicBusyWrap}>
+                                        <ActivityIndicator size="small" color={COLORS.primary} />
+                                        <Text style={styles.academicBusyText}>Updating academic details…</Text>
+                                    </View>
+                                ) : (
+                                    <>
+                                        <TouchableOpacity
+                                            style={[styles.academicBtn, styles.academicBtnDemote, !canDemote && styles.academicBtnDisabled]}
+                                            onPress={canDemote ? confirmDemoteClass : undefined}
+                                            disabled={!canDemote}
+                                            activeOpacity={0.85}
+                                        >
+                                            <Ionicons name="arrow-back" size={14} color={canDemote ? COLORS.absent : COLORS.textMuted} />
+                                            <Text style={[styles.academicBtnText, { color: canDemote ? COLORS.absent : COLORS.textMuted }]}>Demote</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[styles.academicBtn, styles.academicBtnPromote, !canPromote && styles.academicBtnDisabled]}
+                                            onPress={canPromote ? confirmPromoteClass : undefined}
+                                            disabled={!canPromote}
+                                            activeOpacity={0.85}
+                                        >
+                                            <Ionicons name="arrow-forward" size={14} color={canPromote ? '#fff' : COLORS.textMuted} />
+                                            <Text style={[styles.academicBtnText, { color: canPromote ? '#fff' : COLORS.textMuted }]}>Promote</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[styles.academicBtn, styles.academicBtnEdit]}
+                                            onPress={openEdit}
+                                            activeOpacity={0.85}
+                                        >
+                                            <Ionicons name="create-outline" size={14} color={COLORS.primary} />
+                                            <Text style={[styles.academicBtnText, { color: COLORS.primary }]}>Edit</Text>
+                                        </TouchableOpacity>
+                                    </>
+                                )}
+                            </View>
+                            {boundaryHint && !academicBusy && (
+                                <View style={styles.boundaryHintRow}>
+                                    <Ionicons name="information-circle-outline" size={12} color={COLORS.textMuted} />
+                                    <Text style={styles.boundaryHintText}>{boundaryHint}</Text>
+                                </View>
+                            )}
                         </>
-                    )}
-                </View>
+                    )
+                })()}
 
                 {/* Stats */}
                 <View style={styles.statsRow}>
@@ -721,6 +742,25 @@ const styles = StyleSheet.create({
     academicBtnText: {
         fontSize: 12,
         fontWeight: '800',
+    },
+    academicBtnDisabled: {
+        backgroundColor: COLORS.borderLight,
+        borderColor: COLORS.border,
+    },
+    boundaryHintRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
+        paddingHorizontal: 20,
+        paddingTop: 4,
+        paddingBottom: 6,
+        backgroundColor: COLORS.surface,
+    },
+    boundaryHintText: {
+        fontSize: 11,
+        color: COLORS.textMuted,
+        fontStyle: 'italic',
     },
 
     // ─── Edit modal ───────────────────────────────────────────────

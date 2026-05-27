@@ -18,6 +18,7 @@ import { useAuthStore } from '../../store/authStore'
 import { supabase } from '../../api/supabase'
 import { validateName, check } from '../../utils/validation'
 import { useNavigation } from '@react-navigation/native'
+import { VyndraFooter } from '../../components/VyndraFooter'
 
 export function StudentProfileScreen() {
   const {
@@ -346,6 +347,8 @@ export function StudentProfileScreen() {
           </>
         )}
       </TouchableOpacity>
+
+      <VyndraFooter showLogo style={{ marginTop: 18, marginBottom: 24 }} />
     </ScrollView>
   )
 }

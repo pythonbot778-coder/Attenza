@@ -65,6 +65,11 @@ export function RootNavigator() {
   // transient loading state. This prevents AuthNavigator from being remounted
   // mid-flow (which would reset its stack to initialRouteName).
   const [showApp, setShowApp] = useState(false)
+  // Once the very first boot finishes (splash animation done AND hydration done),
+  // we latch this flag so subsequent loading states (e.g. token refresh) never
+  // re-trigger the splash. Without this we'd get a blank flash on slow networks
+  // when hydration outruns the splash animation.
+  const [bootComplete, setBootComplete] = useState(false)
 
   const readyForApp =
     isAuthenticated &&
@@ -83,7 +88,12 @@ export function RootNavigator() {
     if (!isAuthenticated && !isLoading) setShowApp(false)
   }, [readyForApp, isAuthenticated, isLoading])
 
-  if (!splashDone) {
+  // Latch boot completion: splash animation finished AND auth store has settled.
+  React.useEffect(() => {
+    if (splashDone && !isLoading) setBootComplete(true)
+  }, [splashDone, isLoading])
+
+  if (!bootComplete) {
     return <AnimatedSplashScreen onFinish={() => setSplashDone(true)} />
   }
 

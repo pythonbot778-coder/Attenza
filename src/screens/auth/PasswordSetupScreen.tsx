@@ -4,6 +4,7 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform,
   ActivityIndicator, Alert,
 } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { StackNavigationProp } from '@react-navigation/stack'
 import { RouteProp } from '@react-navigation/native'
 import { supabase } from '../../api/supabase'
@@ -89,7 +90,12 @@ export function PasswordSetupScreen({ navigation, route }: Props) {
               editable={!loading}
             />
             <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPass(p => !p)}>
-              <Text style={styles.eyeText}>{showPass ? '🙈' : '👁'}</Text>
+              <Ionicons
+                name={showPass ? 'eye-off-outline' : 'eye-outline'}
+                size={20}
+                color={COLORS.textSecondary}
+                accessibilityLabel={showPass ? 'Hide password' : 'Show password'}
+              />
             </TouchableOpacity>
           </View>
           <View style={styles.strengthBar}>
@@ -121,7 +127,12 @@ export function PasswordSetupScreen({ navigation, route }: Props) {
               editable={!loading}
             />
             <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowConfirm(p => !p)}>
-              <Text style={styles.eyeText}>{showConfirm ? '🙈' : '👁'}</Text>
+              <Ionicons
+                name={showConfirm ? 'eye-off-outline' : 'eye-outline'}
+                size={20}
+                color={COLORS.textSecondary}
+                accessibilityLabel={showConfirm ? 'Hide confirm password' : 'Show confirm password'}
+              />
             </TouchableOpacity>
           </View>
           {confirm.length > 0 && (

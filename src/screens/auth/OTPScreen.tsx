@@ -17,12 +17,24 @@ type Props = {
   route: RouteProp<AuthStackParams, 'OTP'>
 }
 
+// Supabase email OTPs default to a 1-hour window, but most deployments tighten
+// to 15 minutes. We use 15 here — better to nudge the user to resend a touch
+// early than let them stare at "Invalid OTP" wondering what they typed wrong.
+const OTP_EXPIRY_SECONDS = 15 * 60
+
+function formatMmSs(total: number): string {
+  const m = Math.max(0, Math.floor(total / 60))
+  const s = Math.max(0, total % 60)
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
 export function OTPScreen({ navigation, route }: Props) {
   const { email, purpose } = route.params
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
   const [loading, setLoading] = useState(false)
   const [resending, setResending] = useState(false)
   const [countdown, setCountdown] = useState(60)
+  const [expirySeconds, setExpirySeconds] = useState(OTP_EXPIRY_SECONDS)
   const inputs = useRef<(TextInput | null)[]>([])
 
   useEffect(() => {
@@ -30,6 +42,16 @@ export function OTPScreen({ navigation, route }: Props) {
     const timer = setTimeout(() => setCountdown(c => c - 1), 1000)
     return () => clearTimeout(timer)
   }, [countdown])
+
+  // Independent expiry tick — counts down from when the code was sent.
+  // Reset when the user taps Resend (handled in handleResend).
+  useEffect(() => {
+    if (expirySeconds <= 0) return
+    const timer = setTimeout(() => setExpirySeconds(s => s - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [expirySeconds])
+
+  const isExpired = expirySeconds <= 0
 
   function handleOtpChange(value: string, index: number) {
     if (!/^\d*$/.test(value)) return
@@ -49,6 +71,10 @@ export function OTPScreen({ navigation, route }: Props) {
     const code = otp.join('')
     if (code.length < 6) {
       Alert.alert('Incomplete', 'Please enter the full 6-digit code.')
+      return
+    }
+    if (isExpired) {
+      Alert.alert('Code Expired', 'This code is no longer valid. Tap Resend to get a fresh one.')
       return
     }
 
@@ -111,6 +137,7 @@ export function OTPScreen({ navigation, route }: Props) {
 
     if (!error) {
       setCountdown(60)
+      setExpirySeconds(OTP_EXPIRY_SECONDS)  // fresh code → fresh 15-min window
       setOtp(['', '', '', '', '', ''])
       inputs.current[0]?.focus()
       Alert.alert('Sent!', 'A new code has been sent to your email.')
@@ -143,6 +170,15 @@ export function OTPScreen({ navigation, route }: Props) {
           </Text>
         </View>
 
+        {/* Expiry hint — surfaces the 15-min Supabase window so users don't blame typos */}
+        <View style={[styles.expiryRow, isExpired && styles.expiryRowExpired]}>
+          <Text style={[styles.expiryText, isExpired && styles.expiryTextExpired]}>
+            {isExpired
+              ? '⚠ This code has expired — tap Resend below'
+              : `⏰ Code expires in ${formatMmSs(expirySeconds)}`}
+          </Text>
+        </View>
+
         <View style={styles.otpRow}>
           {otp.map((digit, index) => (
             <TextInput
@@ -155,7 +191,7 @@ export function OTPScreen({ navigation, route }: Props) {
               keyboardType="number-pad"
               maxLength={1}
               selectTextOnFocus
-              editable={!loading}
+              editable={!loading && !isExpired}
             />
           ))}
         </View>
@@ -198,6 +234,29 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 10 },
   subtitle: { fontSize: 15, color: COLORS.textSecondary, lineHeight: 22 },
   emailText: { color: COLORS.primary, fontWeight: '600' },
+  expiryRow: {
+    alignSelf: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: COLORS.primary + '12',
+    borderWidth: 1,
+    borderColor: COLORS.primary + '30',
+    marginBottom: 18,
+  },
+  expiryRowExpired: {
+    backgroundColor: COLORS.absent + '12',
+    borderColor: COLORS.absent + '40',
+  },
+  expiryText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.primary,
+    letterSpacing: 0.2,
+  },
+  expiryTextExpired: {
+    color: COLORS.absent,
+  },
   otpRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32 },
   otpBox: {
     width: 48, height: 56,

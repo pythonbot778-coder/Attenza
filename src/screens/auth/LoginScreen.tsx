@@ -17,6 +17,7 @@ import { COLORS } from '../../constants/colors'
 import { AuthStackParams } from '../../navigation/AuthNavigator'
 import { hydrateAuthState } from '../../store/authStore'
 import { check, validateCollegeEmail } from '../../utils/validation'
+import { VyndraFooter } from '../../components/VyndraFooter'
 
 type Props = {
   navigation: StackNavigationProp<AuthStackParams, 'Login'>
@@ -171,17 +172,17 @@ export function LoginScreen({ navigation }: Props) {
               )}
             </TouchableOpacity>
 
-            {mode === 'password' && (
-              <TouchableOpacity
-                style={styles.forgotBtn}
-                onPress={() => navigation.navigate('ForgotPassword')}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.forgotText}>
-                  Forgot password?
-                </Text>
-              </TouchableOpacity>
-            )}
+            {/* Forgot Password reachable from both modes — recovery shouldn't depend on
+                the user picking the right tab first. */}
+            <TouchableOpacity
+              style={styles.forgotBtn}
+              onPress={() => navigation.navigate('ForgotPassword')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.forgotText}>
+                Forgot password?
+              </Text>
+            </TouchableOpacity>
           </View>
 
           <Text style={styles.footer}>
@@ -189,6 +190,8 @@ export function LoginScreen({ navigation }: Props) {
               ? 'A 6-digit code will be sent to your email.'
               : 'New user? Switch to Email OTP to register.'}
           </Text>
+
+          <VyndraFooter style={{ marginTop: 28 }} />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
