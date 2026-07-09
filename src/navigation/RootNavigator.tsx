@@ -11,7 +11,8 @@ import { COLORS } from '../constants/colors'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { OfflineBanner } from '../components/OfflineBanner'
 import { AnimatedSplashScreen } from '../screens/shared/AnimatedSplashScreen'
-import { RoleTransfer, getPendingTransferForUser, RoleTransferScreen } from '../api/roleTransferApi'
+import { RoleTransfer, getPendingTransferForUser } from '../api/roleTransferApi'
+import { RoleTransferScreen } from '../screens/shared/RoleTransferScreen'
 import { ClassNotSetUpScreen } from '../screens/shared/ClassNotSetUpScreen'
 
 const Stack = createStackNavigator()

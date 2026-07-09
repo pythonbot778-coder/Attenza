@@ -101,17 +101,14 @@ export async function hydrateAuthState() {
     let userRow: any = null
     let member: any = null
 
-    try {
-      const res = await supabase
-        .from('users')
-        .select('name, avatar_url, role_global, mobile_number')
-        .eq('id', userId)
-        .maybeSingle()
+    const res = await supabase
+      .from('users')
+      .select('name, avatar_url, role_global, mobile_number')
+      .eq('id', userId)
+      .maybeSingle()
 
-      userRow = res.data ?? null
-    } catch (e) {
-      logger.log('users load failed', e)
-    }
+    logger.log('users query result', res.data, res.error)
+    userRow = res.data ?? null
 
     const isAdmin = userRow?.role_global === 'admin'
 

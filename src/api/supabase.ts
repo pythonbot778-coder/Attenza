@@ -8,6 +8,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error(
     '[Attenza] Missing Supabase credentials. Check eas.json env or your .env file.'
   )
+} else {
+  console.log('[Attenza] Connecting to Supabase:', supabaseUrl)
 }
 
 // Splits large values into chunks to stay under SecureStore's 2048 byte limit
@@ -45,7 +47,7 @@ const ChunkedSecureStore = {
       chunks.push(value.slice(i, i + CHUNK_SIZE))
     }
 
-    await SecureStore.deleteItemAsync(key).catch(() => {})
+    await SecureStore.deleteItemAsync(key).catch(() => { })
 
     for (let i = 0; i < chunks.length; i++) {
       await SecureStore.setItemAsync(`${key}_chunk_${i}`, chunks[i])
@@ -54,7 +56,7 @@ const ChunkedSecureStore = {
   },
 
   async removeItem(key: string): Promise<void> {
-    await SecureStore.deleteItemAsync(key).catch(() => {})
+    await SecureStore.deleteItemAsync(key).catch(() => { })
     await ChunkedSecureStore.removeChunks(key)
   },
 
@@ -63,9 +65,9 @@ const ChunkedSecureStore = {
     if (!countStr) return
     const count = parseInt(countStr, 10)
     for (let i = 0; i < count; i++) {
-      await SecureStore.deleteItemAsync(`${key}_chunk_${i}`).catch(() => {})
+      await SecureStore.deleteItemAsync(`${key}_chunk_${i}`).catch(() => { })
     }
-    await SecureStore.deleteItemAsync(`${key}_count`).catch(() => {})
+    await SecureStore.deleteItemAsync(`${key}_count`).catch(() => { })
   },
 }
 
