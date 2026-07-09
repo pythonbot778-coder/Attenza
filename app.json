@@ -31,7 +31,7 @@
     "android": {
       "package": "com.vindra.attenza",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#4F46E5"
@@ -65,16 +65,16 @@
       ],
       "expo-font"
     ],
-    "extra": {
-      "eas": {
-        "projectId": "afda8a63-2555-4f78-96a7-d306ded825dc"
-      }
-    },
     "updates": {
       "url": "https://u.expo.dev/3a04ba9e-0d30-4743-8e60-f735894d2922",
       "fallbackToCacheTimeout": 0,
       "enabled": false
     },
-    "owner": "python778"
+    "owner": "believer2502",
+    "extra": {
+      "eas": {
+        "projectId": "3a04ba9e-0d30-4743-8e60-f735894d2922"
+      }
+    }
   }
 }
