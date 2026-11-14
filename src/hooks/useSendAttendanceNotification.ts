@@ -25,7 +25,7 @@ export function useSendAttendanceNotification() {
       const tokens = await getClassPushTokens(classId)
       if (tokens.length === 0) return
       await sendPushNotifications({
-        title:   `📋 Attendance Marked — ${label}`,
+        title:   `Attendance Marked — ${label}`,
         body:    `${dateFmt} · ${presentCount}/${totalCount} present (${pct}%) · ${takenByName ?? role}`,
         tokens,  classId, type: 'attendance',
         data:    { type: 'attendance', subjectName, dateSelected },

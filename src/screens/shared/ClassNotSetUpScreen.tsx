@@ -5,16 +5,20 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   TextInput,
   ScrollView,
 } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../../api/supabase'
 import { useAuthStore, hydrateAuthState } from '../../store/authStore'
 import { COLORS } from '../../constants/colors'
 import { logger } from '../../utils/logger'
-import { validateName, validateRollNumber, validateMobile, check } from '../../utils/validation'
+import { validateName, validateRollNumber, validateMobile } from '../../utils/validation'
 import { VyndraFooter } from '../../components/VyndraFooter'
+import {
+  showErrorDialog,
+  showSuccessDialog,
+} from '../../store/dialogStore'
 
 export function ClassNotSetUpScreen() {
   const {
@@ -29,8 +33,6 @@ export function ClassNotSetUpScreen() {
   const [syncing, setSyncing] = useState(false)
   const [listening, setListening] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
-  // Tracks the last sync attempt's outcome so the bottom hint can show "Sync failed"
-  // instead of the misleading "Auto-sync enabled" when the realtime claim threw.
   const [syncError, setSyncError] = useState<string | null>(null)
 
   const [editingName, setEditingName] = useState(false)
@@ -92,12 +94,12 @@ export function ClassNotSetUpScreen() {
       setSyncing(true)
       setSyncError(null)
       await claimStudentRow()
-      setSyncError(null)  // success — clear any prior error
+      setSyncError(null)
     } catch (e: any) {
       const msg = e?.message ?? 'Unable to sync class right now.'
       logger.log('ClassNotSetUp retry failed', e)
       setSyncError(msg)
-      Alert.alert('Retry Failed', msg)
+      showErrorDialog('Sync Retry Failed', msg)
     } finally {
       setSyncing(false)
     }
@@ -105,11 +107,15 @@ export function ClassNotSetUpScreen() {
 
   async function handleSaveName() {
     if (!userId) {
-      Alert.alert('Error', 'No user session found.')
+      showErrorDialog('Session Error', 'No active session found. Please login again.')
       return
     }
 
-    if (!check(validateName(normalizedName))) return
+    const v = validateName(normalizedName)
+    if (!v.valid) {
+      showErrorDialog('Invalid Name', v.error ?? 'Please check your name.')
+      return
+    }
 
     try {
       setSavingProfile(true)
@@ -123,10 +129,10 @@ export function ClassNotSetUpScreen() {
 
       useAuthStore.getState().setUser({ name: normalizedName })
       setEditingName(false)
-      Alert.alert('Saved', 'Name updated successfully.')
+      showSuccessDialog('Name Updated', 'Your name has been updated successfully.')
     } catch (e: any) {
       logger.log('Name update failed', e)
-      Alert.alert('Save Failed', e?.message ?? 'Unable to update your name right now.')
+      showErrorDialog('Save Failed', e?.message ?? 'Unable to update your name right now.')
     } finally {
       setSavingProfile(false)
     }
@@ -134,12 +140,21 @@ export function ClassNotSetUpScreen() {
 
   async function handleSaveContact() {
     if (!userId) {
-      Alert.alert('Error', 'No user session found.')
+      showErrorDialog('Session Error', 'No user session found. Please login again.')
       return
     }
 
-    if (!check(validateRollNumber(normalizedRollNumber))) return
-    if (!check(validateMobile(normalizedMobileNumber))) return
+    const vRoll = validateRollNumber(normalizedRollNumber)
+    if (!vRoll.valid) {
+      showErrorDialog('Invalid Roll Number', vRoll.error ?? 'Please check your roll number.')
+      return
+    }
+
+    const vMobile = validateMobile(normalizedMobileNumber)
+    if (!vMobile.valid) {
+      showErrorDialog('Invalid Mobile', vMobile.error ?? 'Please check your mobile number.')
+      return
+    }
 
     try {
       setSavingProfile(true)
@@ -169,10 +184,10 @@ export function ClassNotSetUpScreen() {
         setSyncing(false)
       }
 
-      Alert.alert('Saved', 'Roll number and mobile number updated.')
+      showSuccessDialog('Details Saved', 'Roll number and mobile number updated successfully.')
     } catch (e: any) {
       logger.log('Contact update failed', e)
-      Alert.alert('Save Failed', e?.message ?? 'Unable to update your details right now.')
+      showErrorDialog('Save Failed', e?.message ?? 'Unable to update your details right now.')
     } finally {
       setSavingProfile(false)
     }
@@ -210,12 +225,11 @@ export function ClassNotSetUpScreen() {
           logger.log('Class membership change detected', payload)
           try {
             await claimStudentRow(activeRoll)
-            setSyncError(null)  // success — clear stale error
+            setSyncError(null)
           } catch (e: any) {
             const msg = e?.message ?? 'Auto-sync claim failed.'
             logger.log('Auto sync claim failed', e)
             setSyncError(msg)
-            // Don't alert here — auto-sync is best-effort; the bottom hint surfaces it.
           }
         }
       )
@@ -236,137 +250,176 @@ export function ClassNotSetUpScreen() {
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.icon}>🕐</Text>
-      <Text style={styles.title}>Waiting for Class Setup</Text>
-      <Text style={styles.body}>
-        Your CR/LR hasn&apos;t created the class yet. Once they do, your account will sync automatically.
-      </Text>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Student Details</Text>
-
-        <Text style={styles.cardLabel}>Name</Text>
-        {editingName ? (
-          <>
-            <TextInput
-              style={styles.input}
-              value={draftName}
-              onChangeText={setDraftName}
-              placeholder="Your full name"
-              placeholderTextColor={COLORS.textMuted}
-              autoCapitalize="words"
-              maxLength={80}
-            />
-            <View style={styles.editActions}>
-              <TouchableOpacity
-                style={[styles.secondaryBtn, savingProfile && styles.btnDisabled]}
-                onPress={cancelNameEdit}
-                disabled={savingProfile}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.secondaryBtnText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.primaryBtn, savingProfile && styles.btnDisabled]}
-                onPress={handleSaveName}
-                disabled={savingProfile}
-                activeOpacity={0.85}
-              >
-                {savingProfile ? (
-                  <ActivityIndicator color={COLORS.textOnPrimary} />
-                ) : (
-                  <Text style={styles.primaryBtnText}>Save Name</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </>
-        ) : (
-          <View style={styles.inlineRow}>
-            <Text style={styles.cardValue}>{name ?? '—'}</Text>
-            <TouchableOpacity
-              onPress={() => setEditingName(true)}
-              style={styles.editBtn}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.editBtnText}>✏️</Text>
-            </TouchableOpacity>
+      {/* Waiting Status Hero */}
+      <View style={styles.heroSection}>
+        <View style={styles.iconRing}>
+          <View style={styles.iconCircle}>
+            <Ionicons name="hourglass-outline" size={38} color={COLORS.primary} />
           </View>
-        )}
+        </View>
 
-        <Text style={styles.cardLabel}>Email</Text>
-        <Text style={styles.cardValue}>{email ?? '—'}</Text>
-        <Text style={styles.cardHint}>Email cannot be changed here.</Text>
+        <Text style={styles.title}>Waiting for Class Setup</Text>
+        <Text style={styles.body}>
+          Your class representative (CR/LR) has not initiated this class yet. Once they set up the roster, your student account will automatically sync.
+        </Text>
 
-        <Text style={styles.cardLabel}>Roll Number</Text>
-        {editingContact ? (
-          <TextInput
-            style={styles.input}
-            value={draftRollNumber}
-            onChangeText={(t) => setDraftRollNumber(t.toUpperCase())}
-            placeholder="e.g. 25ECE04178"
-            placeholderTextColor={COLORS.textMuted}
-            autoCapitalize="characters"
-            maxLength={15}
-          />
-        ) : (
-          <View style={styles.inlineRow}>
-            <Text style={styles.cardValue}>{rollNumber ?? '—'}</Text>
-            {!editingName ? (
-              <TouchableOpacity
-                onPress={() => setEditingContact(true)}
-                style={styles.editBtn}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.editBtnText}>✏️</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        )}
-
-        <Text style={styles.cardLabel}>Mobile Number</Text>
-        {editingContact ? (
-          <>
-            <TextInput
-              style={styles.input}
-              value={draftMobileNumber}
-              onChangeText={setDraftMobileNumber}
-              placeholder="10-digit number"
-              placeholderTextColor={COLORS.textMuted}
-              keyboardType="phone-pad"
-              maxLength={10}
-            />
-            <View style={styles.editActions}>
-              <TouchableOpacity
-                style={[styles.secondaryBtn, savingProfile && styles.btnDisabled]}
-                onPress={cancelContactEdit}
-                disabled={savingProfile}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.secondaryBtnText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.primaryBtn, savingProfile && styles.btnDisabled]}
-                onPress={handleSaveContact}
-                disabled={savingProfile}
-                activeOpacity={0.85}
-              >
-                {savingProfile ? (
-                  <ActivityIndicator color={COLORS.textOnPrimary} />
-                ) : (
-                  <Text style={styles.primaryBtnText}>Save Details</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </>
-        ) : (
-          <Text style={styles.cardValue}>{mobileNumber ?? '—'}</Text>
-        )}
+        <View style={styles.syncStatusPill}>
+          <View style={[styles.statusDot, { backgroundColor: listening ? COLORS.success : COLORS.warning }]} />
+          <Text style={styles.syncStatusText}>
+            Auto-sync {listening ? 'active' : 'connecting'} for {rollNumber ?? '—'}
+          </Text>
+        </View>
       </View>
 
+      {/* Student Details Card */}
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>Your Registered Info</Text>
+          <Text style={styles.cardHeaderHint}>Ensure your roll number is accurate</Text>
+        </View>
+
+        {/* Name Field */}
+        <View style={styles.fieldBlock}>
+          <Text style={styles.cardLabel}>Full Name</Text>
+          {editingName ? (
+            <View style={styles.editWrap}>
+              <TextInput
+                style={styles.input}
+                value={draftName}
+                onChangeText={setDraftName}
+                placeholder="Your full name"
+                placeholderTextColor={COLORS.textMuted}
+                autoCapitalize="words"
+                maxLength={80}
+              />
+              <View style={styles.editActions}>
+                <TouchableOpacity
+                  style={[styles.secondaryBtn, savingProfile && styles.btnDisabled]}
+                  onPress={cancelNameEdit}
+                  disabled={savingProfile}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.secondaryBtnText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.primaryBtn, savingProfile && styles.btnDisabled]}
+                  onPress={handleSaveName}
+                  disabled={savingProfile}
+                  activeOpacity={0.85}
+                >
+                  {savingProfile ? (
+                    <ActivityIndicator color={COLORS.textOnPrimary} size="small" />
+                  ) : (
+                    <Text style={styles.primaryBtnText}>Save</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.inlineRow}>
+              <Text style={styles.cardValue}>{name ?? '—'}</Text>
+              <TouchableOpacity
+                onPress={() => setEditingName(true)}
+                style={styles.editBtn}
+                activeOpacity={0.8}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="pencil" size={14} color={COLORS.primary} />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* Email Field (Read-only) */}
+        <View style={styles.fieldBlock}>
+          <Text style={styles.cardLabel}>College Email</Text>
+          <View style={styles.inlineRow}>
+            <Text style={styles.cardValue}>{email ?? '—'}</Text>
+            <Ionicons name="lock-closed-outline" size={16} color={COLORS.textMuted} />
+          </View>
+        </View>
+
+        {/* Roll Number Field */}
+        <View style={styles.fieldBlock}>
+          <Text style={styles.cardLabel}>Roll Number</Text>
+          {editingContact ? (
+            <TextInput
+              style={styles.input}
+              value={draftRollNumber}
+              onChangeText={(t) => setDraftRollNumber(t.toUpperCase())}
+              placeholder="e.g. 25ECE04178"
+              placeholderTextColor={COLORS.textMuted}
+              autoCapitalize="characters"
+              maxLength={15}
+            />
+          ) : (
+            <View style={styles.inlineRow}>
+              <Text style={[styles.cardValue, styles.rollNumberValue]}>{rollNumber ?? '—'}</Text>
+              {!editingName && (
+                <TouchableOpacity
+                  onPress={() => setEditingContact(true)}
+                  style={styles.editBtn}
+                  activeOpacity={0.8}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="pencil" size={14} color={COLORS.primary} />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* Mobile Number Field */}
+        <View style={[styles.fieldBlock, { borderBottomWidth: 0 }]}>
+          <Text style={styles.cardLabel}>Mobile Number</Text>
+          {editingContact ? (
+            <View style={styles.editWrap}>
+              <TextInput
+                style={styles.input}
+                value={draftMobileNumber}
+                onChangeText={setDraftMobileNumber}
+                placeholder="10-digit phone number"
+                placeholderTextColor={COLORS.textMuted}
+                keyboardType="phone-pad"
+                maxLength={10}
+              />
+              <View style={styles.editActions}>
+                <TouchableOpacity
+                  style={[styles.secondaryBtn, savingProfile && styles.btnDisabled]}
+                  onPress={cancelContactEdit}
+                  disabled={savingProfile}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.secondaryBtnText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.primaryBtn, savingProfile && styles.btnDisabled]}
+                  onPress={handleSaveContact}
+                  disabled={savingProfile}
+                  activeOpacity={0.85}
+                >
+                  {savingProfile ? (
+                    <ActivityIndicator color={COLORS.textOnPrimary} size="small" />
+                  ) : (
+                    <Text style={styles.primaryBtnText}>Save</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <Text style={styles.cardValue}>{mobileNumber ?? '—'}</Text>
+          )}
+        </View>
+      </View>
+
+      {/* Manual Retry Sync Action Button */}
       <TouchableOpacity
-        style={[styles.retryBtn, (syncing || isLoading || savingProfile) && styles.btnDisabled]}
+        style={[
+          styles.retryBtn,
+          (syncing || isLoading || savingProfile) && styles.btnDisabled,
+        ]}
         onPress={handleRetry}
         disabled={syncing || isLoading || savingProfile}
         activeOpacity={0.85}
@@ -374,20 +427,24 @@ export function ClassNotSetUpScreen() {
         {syncing ? (
           <ActivityIndicator color={COLORS.textOnPrimary} />
         ) : (
-          <Text style={styles.retryText}>Retry Sync</Text>
+          <View style={styles.retryBtnInner}>
+            <Ionicons name="refresh" size={18} color="#fff" />
+            <Text style={styles.retryText}>Check Class Setup Now</Text>
+          </View>
         )}
       </TouchableOpacity>
 
-      {syncError ? (
-        <Text style={[styles.hint, styles.hintError]}>
-          ⚠ Auto-sync failed: {syncError}{'\n'}Tap "Retry Sync" above to try again.
-        </Text>
-      ) : (
-        <Text style={styles.hint}>
-          Auto-sync is {listening ? 'enabled' : 'starting'} for roll number {useAuthStore.getState().rollNumber ?? '—'}.
-        </Text>
+      {/* Sync Error / Feedback Strip */}
+      {syncError && (
+        <View style={styles.errorNotice}>
+          <Ionicons name="alert-circle" size={16} color={COLORS.absent} />
+          <Text style={styles.errorNoticeText}>
+            Auto-sync check: {syncError}. Tap button above to retry.
+          </Text>
+        </View>
       )}
 
+      {/* Sign Out Button */}
       <TouchableOpacity
         style={styles.signOutBtn}
         onPress={async () => {
@@ -400,10 +457,12 @@ export function ClassNotSetUpScreen() {
         }}
         activeOpacity={0.85}
       >
+        <Ionicons name="log-out-outline" size={16} color={COLORS.textSecondary} style={{ marginRight: 6 }} />
         <Text style={styles.signOutText}>Sign Out</Text>
       </TouchableOpacity>
 
-      <VyndraFooter style={{ marginTop: 20 }} />
+      <VyndraFooter style={{ marginTop: 28 }} />
+      <View style={{ height: 32 }} />
     </ScrollView>
   )
 }
@@ -414,52 +473,108 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   content: {
-    padding: 24,
-    paddingTop: 56,
+    padding: 20,
+    paddingTop: 48,
     paddingBottom: 32,
     flexGrow: 1,
-    justifyContent: 'center',
   },
-  icon: {
-    fontSize: 56,
-    textAlign: 'center',
-    marginBottom: 18,
+  heroSection: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  iconRing: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 2,
+    borderColor: COLORS.primary + '25',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  iconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: COLORS.primary + '12',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
     fontSize: 22,
-    fontWeight: '800',
+    fontWeight: '900',
     color: COLORS.textPrimary,
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
+    letterSpacing: -0.3,
   },
   body: {
     fontSize: 14,
-    lineHeight: 22,
+    lineHeight: 21,
     color: COLORS.textSecondary,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 14,
+    paddingHorizontal: 12,
+  },
+  syncStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  syncStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
   },
   card: {
     width: '100%',
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 18,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  cardHeader: {
+    marginBottom: 10,
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: COLORS.textPrimary,
-    marginBottom: 6,
+  },
+  cardHeaderHint: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  fieldBlock: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
   },
   cardLabel: {
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '800',
     color: COLORS.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
-    marginTop: 12,
     marginBottom: 4,
   },
   cardValue: {
@@ -468,108 +583,124 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
   },
-  cardHint: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    marginTop: 4,
+  rollNumberValue: {
+    fontWeight: '800',
+    color: COLORS.primaryDark,
+    letterSpacing: 0.5,
   },
   inlineRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
   },
   editBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: COLORS.primary + '12',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  editBtnText: {
-    color: COLORS.textPrimary,
-    fontWeight: '700',
-    fontSize: 13,
+  editWrap: {
+    marginTop: 4,
   },
   input: {
     backgroundColor: COLORS.background,
     borderWidth: 1.5,
-    borderColor: COLORS.border,
+    borderColor: COLORS.primary,
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 10,
     fontSize: 15,
     color: COLORS.textPrimary,
   },
   editActions: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 12,
+    marginTop: 10,
   },
   primaryBtn: {
     flex: 1,
     backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    paddingVertical: 13,
+    borderRadius: 10,
+    paddingVertical: 10,
     alignItems: 'center',
   },
   primaryBtnText: {
     color: COLORS.textOnPrimary,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   secondaryBtn: {
     flex: 1,
     backgroundColor: COLORS.background,
-    borderRadius: 12,
-    paddingVertical: 13,
+    borderRadius: 10,
+    paddingVertical: 10,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   secondaryBtnText: {
-    color: COLORS.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
   },
   retryBtn: {
     width: '100%',
     backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 14,
+    paddingVertical: 15,
     alignItems: 'center',
     marginBottom: 12,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  retryBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   retryText: {
     color: COLORS.textOnPrimary,
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   btnDisabled: {
     opacity: 0.6,
   },
-  hint: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    textAlign: 'center',
-    marginBottom: 18,
+  errorNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: COLORS.absent + '10',
+    borderWidth: 1,
+    borderColor: COLORS.absent + '30',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 14,
   },
-  hintError: {
+  errorNoticeText: {
+    flex: 1,
+    fontSize: 12,
     color: COLORS.absent,
     fontWeight: '600',
   },
   signOutBtn: {
     width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingVertical: 13,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.surface,
-    alignItems: 'center',
   },
   signOutText: {
-    color: COLORS.textPrimary,
+    color: COLORS.textSecondary,
     fontSize: 14,
     fontWeight: '700',
   },

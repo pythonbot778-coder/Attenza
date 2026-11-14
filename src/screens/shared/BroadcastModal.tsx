@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  Modal, ActivityIndicator, Alert, KeyboardAvoidingView,
+  Modal, ActivityIndicator, KeyboardAvoidingView,
   Platform, ScrollView,
 } from 'react-native'
 import { Ionicons }              from '@expo/vector-icons'
@@ -9,6 +9,7 @@ import { COLORS }                from '../../constants/colors'
 import { getClassPushTokens }    from '../../api/notificationApi'
 import { sendPushNotifications } from '../../utils/notificationUtils'
 import { validateTextField, check } from '../../utils/validation'
+import { showDialog, showConfirmDialog, showErrorDialog } from '../../store/dialogStore'
 
 interface Props {
   visible:    boolean
@@ -37,27 +38,29 @@ export function BroadcastModal({ visible, classId, classLabel, onClose }: Props)
       tokens = await getClassPushTokens(classId)
     } catch (e: any) {
       setSending(false)
-      Alert.alert('Error', e?.message ?? 'Could not look up recipients.')
+      showErrorDialog('Lookup Failed', e?.message ?? 'Could not look up recipients.')
       return
     }
 
     if (tokens.length === 0) {
       setSending(false)
-      Alert.alert('No Recipients', 'No students in this class have push notifications enabled yet.')
+      showDialog({
+        title: 'No Recipients',
+        message: 'No students in this class have push notifications enabled yet.',
+        type: 'info',
+      })
       return
     }
 
     // Step 2: confirm with the user — broadcast is destructive in that it can't be undone.
     setSending(false)
-    Alert.alert(
+    showConfirmDialog(
       'Send Broadcast?',
-      `Title: ${title.trim()}\n\n` +
-      `Recipients: ${tokens.length} device${tokens.length > 1 ? 's' : ''} in ${classLabel}\n\n` +
-      `This will deliver an immediate push notification and cannot be undone.`,
-      [
-        { text: 'Review', style: 'cancel' },
-        { text: 'Send Now', style: 'default', onPress: () => doSend(tokens) },
-      ]
+      `Title: ${title.trim()}\n\nRecipients: ${tokens.length} device${tokens.length > 1 ? 's' : ''} in ${classLabel}\n\nThis will deliver an immediate push notification and cannot be undone.`,
+      () => { doSend(tokens) },
+      undefined,
+      'Send Now',
+      'Review'
     )
   }
 
@@ -68,10 +71,10 @@ export function BroadcastModal({ visible, classId, classLabel, onClose }: Props)
         title:   title.trim(), body: message.trim(),
         tokens, classId, type: 'broadcast', data: { type: 'broadcast' },
       })
-      setSentInfo(`✅ Sent to ${count} of ${tokens.length} device${tokens.length > 1 ? 's' : ''}`)
+      setSentInfo(`Sent to ${count} of ${tokens.length} device${tokens.length > 1 ? 's' : ''}`)
       setTitle(''); setMessage('')
     } catch (e: any) {
-      Alert.alert('Error', e.message)
+      showErrorDialog('Broadcast Failed', e.message)
     } finally {
       setSending(false)
     }

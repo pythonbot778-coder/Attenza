@@ -1,20 +1,27 @@
 import React, { useState } from 'react'
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  ActivityIndicator, Alert,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native'
-import { Ionicons }        from '@expo/vector-icons'
-import { COLORS }          from '../../constants/colors'
+import { Ionicons } from '@expo/vector-icons'
+import { COLORS } from '../../constants/colors'
 import {
   RoleTransfer,
   acceptRoleTransfer,
   rejectRoleTransfer,
 } from '../../api/roleTransferApi'
 import { hydrateAuthState } from '../../store/authStore'
+import {
+  showErrorDialog,
+  showConfirmDialog,
+} from '../../store/dialogStore'
 
 type Props = {
   transfer: RoleTransfer
-  onDone:   () => void
+  onDone: () => void
 }
 
 export function RoleTransferScreen({ transfer, onDone }: Props) {
@@ -28,101 +35,113 @@ export function RoleTransferScreen({ transfer, onDone }: Props) {
       await hydrateAuthState()
       onDone()
     } catch (err: any) {
-      // Show actual error — never swallow it so we can debug
       const msg = err?.message ?? err?.toString() ?? 'Unknown error'
       console.error('[RoleTransfer] Accept failed:', msg, err)
-      Alert.alert('Accept Failed', msg)
+      showErrorDialog('Accept Failed', msg)
       setLoading(null)
     }
   }
 
-  async function handleReject() {
-    Alert.alert(
-      'Decline Transfer',
-      `Are you sure you want to decline the ${transfer.role} role?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Decline',
-          style: 'destructive',
-          onPress: async () => {
-            setLoading('reject')
-            try {
-              await rejectRoleTransfer(transfer.id)
-              onDone()
-            } catch (err: any) {
-              const msg = err?.message ?? err?.toString() ?? 'Unknown error'
-              console.error('[RoleTransfer] Reject failed:', msg, err)
-              Alert.alert('Reject Failed', msg)
-              setLoading(null)
-            }
-          },
-        },
-      ]
+  function handleReject() {
+    showConfirmDialog(
+      'Decline Transfer Request?',
+      `Are you sure you want to decline the nomination to become the new ${transfer.role}?`,
+      async () => {
+        setLoading('reject')
+        try {
+          await rejectRoleTransfer(transfer.id)
+          onDone()
+        } catch (err: any) {
+          const msg = err?.message ?? err?.toString() ?? 'Unknown error'
+          console.error('[RoleTransfer] Reject failed:', msg, err)
+          showErrorDialog('Decline Failed', msg)
+          setLoading(null)
+        }
+      },
+      undefined,
+      'Decline Nomination',
+      'Cancel',
+      true
     )
   }
 
   return (
     <View style={styles.container}>
-      <View style={[styles.iconCircle, { backgroundColor: roleColor + '18' }]}>
-        <Ionicons name="swap-horizontal" size={48} color={roleColor} />
-      </View>
-
-      <Text style={styles.title}>Role Transfer Request</Text>
-      <Text style={styles.subtitle}>You have been selected to become the new</Text>
-
-      <View style={[styles.roleBadge, { backgroundColor: roleColor }]}>
-        <Text style={styles.roleBadgeText}>{transfer.role}</Text>
-      </View>
-
-      <View style={styles.card}>
-        <View style={styles.cardRow}>
-          <Ionicons name="information-circle-outline" size={18} color={COLORS.textSecondary} />
-          <Text style={styles.cardText}>
-            The current {transfer.role} has initiated this transfer. Accepting will
-            give you full {transfer.role} privileges — you can mark attendance and
-            manage subjects.
-          </Text>
+      <View style={styles.cardWrapper}>
+        {/* Glow Icon Circle */}
+        <View style={[styles.iconOuterRing, { borderColor: roleColor + '30' }]}>
+          <View style={[styles.iconCircle, { backgroundColor: roleColor + '18' }]}>
+            <Ionicons name="swap-horizontal" size={44} color={roleColor} />
+          </View>
         </View>
-        <View style={[styles.cardRow, { marginTop: 12 }]}>
-          <Ionicons name="warning-outline" size={18} color="#F59E0B" />
-          <Text style={[styles.cardText, { color: '#92400E' }]}>
-            If you decline, the current {transfer.role} retains their role and
-            you remain a student.
-          </Text>
-        </View>
-      </View>
 
-      <View style={styles.actions}>
-        <TouchableOpacity
-          style={[styles.btn, styles.acceptBtn, { backgroundColor: roleColor }]}
-          onPress={handleAccept}
-          disabled={loading !== null}
-          activeOpacity={0.85}
-        >
-          {loading === 'accept'
-            ? <ActivityIndicator color="#fff" />
-            : <>
+        <Text style={styles.title}>Role Transfer Request</Text>
+        <Text style={styles.subtitle}>
+          You have been nominated by your class representative to assume the role of
+        </Text>
+
+        <View style={[styles.roleBadge, { backgroundColor: roleColor }]}>
+          <Ionicons name="shield-checkmark" size={18} color="#fff" style={{ marginRight: 6 }} />
+          <Text style={styles.roleBadgeText}>{transfer.role}</Text>
+        </View>
+
+        {/* Informational Card */}
+        <View style={styles.card}>
+          <View style={styles.infoRow}>
+            <View style={styles.infoIconWrap}>
+              <Ionicons name="checkmark-done-circle" size={18} color={COLORS.primary} />
+            </View>
+            <Text style={styles.cardText}>
+              Accepting gives you full {transfer.role} privileges to take attendance, manage subject schedules, and supervise records.
+            </Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.infoRow}>
+            <View style={[styles.infoIconWrap, { backgroundColor: COLORS.warning + '18' }]}>
+              <Ionicons name="alert-circle-outline" size={18} color={COLORS.warning} />
+            </View>
+            <Text style={styles.cardText}>
+              Declining keeps the current {transfer.role} in charge, and your account remains a student member.
+            </Text>
+          </View>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={[styles.btn, styles.acceptBtn, { backgroundColor: roleColor }]}
+            onPress={handleAccept}
+            disabled={loading !== null}
+            activeOpacity={0.85}
+          >
+            {loading === 'accept' ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <View style={styles.btnInner}>
                 <Ionicons name="checkmark-circle" size={20} color="#fff" />
                 <Text style={styles.acceptText}>Accept — Become {transfer.role}</Text>
-              </>
-          }
-        </TouchableOpacity>
+              </View>
+            )}
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.btn, styles.rejectBtn]}
-          onPress={handleReject}
-          disabled={loading !== null}
-          activeOpacity={0.85}
-        >
-          {loading === 'reject'
-            ? <ActivityIndicator color={COLORS.absent} />
-            : <>
+          <TouchableOpacity
+            style={[styles.btn, styles.rejectBtn]}
+            onPress={handleReject}
+            disabled={loading !== null}
+            activeOpacity={0.85}
+          >
+            {loading === 'reject' ? (
+              <ActivityIndicator color={COLORS.absent} />
+            ) : (
+              <View style={styles.btnInner}>
                 <Ionicons name="close-circle-outline" size={20} color={COLORS.absent} />
-                <Text style={styles.rejectText}>Decline</Text>
-              </>
-          }
-        </TouchableOpacity>
+                <Text style={styles.rejectText}>Decline Nomination</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   )
@@ -130,35 +149,141 @@ export function RoleTransferScreen({ transfer, onDone }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1, backgroundColor: COLORS.background,
-    justifyContent: 'center', alignItems: 'center', padding: 28,
+    flex: 1,
+    backgroundColor: COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  cardWrapper: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  iconOuterRing: {
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   iconCircle: {
-    width: 100, height: 100, borderRadius: 50,
-    justifyContent: 'center', alignItems: 'center', marginBottom: 24,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  title:    { fontSize: 24, fontWeight: '900', color: COLORS.textPrimary, textAlign: 'center', marginBottom: 8 },
-  subtitle: { fontSize: 15, color: COLORS.textSecondary, textAlign: 'center', marginBottom: 14 },
-  roleBadge:     { paddingHorizontal: 28, paddingVertical: 8, borderRadius: 24, marginBottom: 28 },
-  roleBadgeText: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 2 },
+  title: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: COLORS.textPrimary,
+    textAlign: 'center',
+    marginBottom: 8,
+    letterSpacing: -0.3,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 16,
+    paddingHorizontal: 8,
+  },
+  roleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+    borderRadius: 24,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  roleBadgeText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+  },
   card: {
-    backgroundColor: COLORS.surface, borderRadius: 16,
-    padding: 16, borderWidth: 1, borderColor: COLORS.border,
-    width: '100%', marginBottom: 32,
+    backgroundColor: COLORS.surface,
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    width: '100%',
+    marginBottom: 28,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 1,
   },
-  cardRow:  { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-  cardText: { flex: 1, fontSize: 13, color: COLORS.textSecondary, lineHeight: 20 },
-  actions:  { width: '100%', gap: 12 },
+  infoRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  infoIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: COLORS.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardText: {
+    flex: 1,
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 19,
+    fontWeight: '500',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.borderLight,
+    marginVertical: 14,
+  },
+  actions: {
+    width: '100%',
+    gap: 12,
+  },
   btn: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: 8,
-    borderRadius: 14, paddingVertical: 15,
+    borderRadius: 14,
+    paddingVertical: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  acceptBtn:  {},
-  acceptText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  btnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  acceptBtn: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  acceptText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
+  },
   rejectBtn: {
-    backgroundColor: COLORS.absent + '12',
-    borderWidth: 1.5, borderColor: COLORS.absent + '50',
+    backgroundColor: COLORS.surface,
+    borderWidth: 1.5,
+    borderColor: COLORS.absent + '50',
   },
-  rejectText: { color: COLORS.absent, fontSize: 15, fontWeight: '700' },
+  rejectText: {
+    color: COLORS.absent,
+    fontSize: 15,
+    fontWeight: '800',
+  },
 })

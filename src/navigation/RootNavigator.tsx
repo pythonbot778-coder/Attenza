@@ -5,7 +5,8 @@ import { createStackNavigator } from '@react-navigation/stack'
 import { useAuthStore } from '../store/authStore'
 import { AuthNavigator } from './AuthNavigator'
 import { CRNavigator } from './CRNavigator'
-import { StudentNavigator } from './StudentNavigator'
+// Preserved for future restoration:
+// import { StudentNavigator } from './StudentNavigator'
 import { AdminNavigator } from './AdminNavigator'
 import { COLORS } from '../constants/colors'
 import { ErrorBoundary } from '../components/ErrorBoundary'
@@ -14,15 +15,17 @@ import { AnimatedSplashScreen } from '../screens/shared/AnimatedSplashScreen'
 import { RoleTransfer, getPendingTransferForUser } from '../api/roleTransferApi'
 import { RoleTransferScreen } from '../screens/shared/RoleTransferScreen'
 import { ClassNotSetUpScreen } from '../screens/shared/ClassNotSetUpScreen'
+import { StudentRestrictedScreen } from '../screens/student/StudentRestrictedScreen'
+import { AmbiguousMembershipScreen } from '../screens/shared/AmbiguousMembershipScreen'
 
 const Stack = createStackNavigator()
 
 function AppScreenWrapper() {
-  const { isLoading, role, classNotSetUp, userId, isAuthenticated } = useAuthStore()
+  const { isLoading, role, classNotSetUp, isAmbiguousMembership, userId, isAuthenticated } = useAuthStore()
   const [pendingTransfer, setPendingTransfer] = useState<RoleTransfer | null>(null)
   const [transferChecked, setTransferChecked] = useState(false)
 
-  useEffect(() => {
+  const checkPendingTransfer = React.useCallback(() => {
     if (!isAuthenticated || isLoading || !userId || role === 'admin') {
       setPendingTransfer(null)
       setTransferChecked(true)
@@ -36,6 +39,10 @@ function AppScreenWrapper() {
       .finally(() => setTransferChecked(true))
   }, [isAuthenticated, isLoading, userId, role])
 
+  useEffect(() => {
+    checkPendingTransfer()
+  }, [checkPendingTransfer])
+
   return (
     <ErrorBoundary fallbackLabel="the main app">
       {isLoading || (isAuthenticated && !transferChecked) ? (
@@ -44,6 +51,8 @@ function AppScreenWrapper() {
         </View>
       ) : pendingTransfer ? (
         <RoleTransferScreen transfer={pendingTransfer} onDone={() => setPendingTransfer(null)} />
+      ) : isAmbiguousMembership ? (
+        <AmbiguousMembershipScreen />
       ) : role === 'admin' ? (
         <AdminNavigator />
       ) : classNotSetUp ? (
@@ -51,7 +60,7 @@ function AppScreenWrapper() {
       ) : role === 'CR' || role === 'LR' ? (
         <CRNavigator />
       ) : role === 'STUDENT' ? (
-        <StudentNavigator />
+        <StudentRestrictedScreen onCheckTransfer={checkPendingTransfer} />
       ) : (
         <AuthNavigator />
       )}
@@ -60,7 +69,7 @@ function AppScreenWrapper() {
 }
 
 export function RootNavigator() {
-  const { isAuthenticated, role, profileComplete, authStep, isLoading } = useAuthStore()
+  const { isAuthenticated, role, profileComplete, authStep, isLoading, isAmbiguousMembership } = useAuthStore()
   const [splashDone, setSplashDone] = useState(false)
   // Latch: once we decide to show App, we don't flip back to Auth due to
   // transient loading state. This prevents AuthNavigator from being remounted
@@ -74,7 +83,7 @@ export function RootNavigator() {
 
   const readyForApp =
     isAuthenticated &&
-    !!role &&
+    (!!role || isAmbiguousMembership) &&
     profileComplete &&
     !isLoading &&
     authStep !== 'FORGOT_PASSWORD_OTP_VERIFIED' &&

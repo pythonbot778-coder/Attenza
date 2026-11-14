@@ -113,17 +113,17 @@ export function validateTextField(
 
 // ─── Convenience: alert-on-fail ───────────────────────────────
 
-import { Alert } from 'react-native'
+import { showErrorDialog } from '../store/dialogStore'
 
 /**
- * Runs validation, shows Alert if invalid, returns boolean.
+ * Runs validation, shows custom error dialog if invalid, returns boolean.
  * Use in handleSubmit to keep screens clean:
  *
  *   if (!check(validateName(name))) return
  */
 export function check(result: ValidationResult): boolean {
   if (!result.valid) {
-    Alert.alert('Invalid Input', result.error ?? 'Please check your input.')
+    showErrorDialog('Invalid Input', result.error ?? 'Please check your input.')
     return false
   }
   return true

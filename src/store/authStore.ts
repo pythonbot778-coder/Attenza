@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { supabase } from '../api/supabase'
 import { ensureUserProfile } from '../api/profile'
 import { logger } from '../utils/logger'
+import { useCacheStore } from './cacheStore'
 
 type Role = 'STUDENT' | 'CR' | 'LR' | 'admin' | null
 
@@ -28,6 +29,7 @@ type AuthState = {
   isAuthenticated: boolean
   isLoading: boolean
   classNotSetUp: boolean
+  isAmbiguousMembership: boolean
   profileComplete: boolean
   authStep: AuthStep
   setUser: (u: Partial<AuthState>) => void
@@ -50,12 +52,16 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
   isLoading: true,
   classNotSetUp: false,
+  isAmbiguousMembership: false,
   profileComplete: false,
   authStep: 'UNAUTHENTICATED',
 
   setUser: (u) => set((s) => ({ ...s, ...u })),
 
-  reset: () =>
+  reset: () => {
+    try {
+      useCacheStore.getState().clearAllCache()
+    } catch {}
     set({
       userId: null,
       email: null,
@@ -74,7 +80,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       classNotSetUp: false,
       profileComplete: false,
       authStep: 'UNAUTHENTICATED',
-    }),
+    })
+  },
 }))
 
 export async function hydrateAuthState() {
@@ -112,6 +119,8 @@ export async function hydrateAuthState() {
 
     const isAdmin = userRow?.role_global === 'admin'
 
+    let isAmbiguous = false
+
     if (!isAdmin) {
       try {
         const { data: members, error } = await supabase
@@ -126,10 +135,12 @@ export async function hydrateAuthState() {
         if (error) throw error
 
         if ((members?.length ?? 0) > 1) {
-          logger.log('Duplicate active class_members rows', members)
+          logger.log('CRITICAL: Duplicate active class_members rows detected for user', userId, members)
+          isAmbiguous = true
+          member = null
+        } else {
+          member = members?.[0] ?? null
         }
-
-        member = members?.[0] ?? null
       } catch (e) {
         logger.log('class_members load failed', e)
       }
@@ -146,7 +157,7 @@ export async function hydrateAuthState() {
         : null
 
     const classNotSetUp =
-      !isAdmin && profileComplete && resolvedRole === 'STUDENT' && !member
+      !isAdmin && !isAmbiguous && profileComplete && resolvedRole === 'STUDENT' && !member
 
     let authStep: AuthStep = 'OTP_VERIFIED'
     if (profileComplete) authStep = 'ONBOARDED'
@@ -156,7 +167,7 @@ export async function hydrateAuthState() {
       email,
       name: userRow?.name ?? session.user.user_metadata?.name ?? existing.name ?? null,
       avatarUrl: userRow?.avatar_url ?? existing.avatarUrl ?? null,
-      role: resolvedRole,
+      role: isAmbiguous ? null : resolvedRole,
       branch: cg?.branch ?? null,
       year: cg?.year ?? null,
       semester: cg?.semester ?? null,
@@ -167,6 +178,7 @@ export async function hydrateAuthState() {
       isAuthenticated: true,
       isLoading: false,
       classNotSetUp,
+      isAmbiguousMembership: isAmbiguous,
       profileComplete,
       authStep,
     }

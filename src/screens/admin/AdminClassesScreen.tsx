@@ -300,7 +300,7 @@ export function AdminClassesScreen() {
                     }
                     ListEmptyComponent={
                         <View style={styles.centered}>
-                            <Text style={styles.emptyIcon}>🏫</Text>
+                            <Ionicons name="school-outline" size={44} color={COLORS.textMuted} style={{ marginBottom: 10 }} />
                             <Text style={styles.emptyText}>No classes yet</Text>
                         </View>
                     }

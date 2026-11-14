@@ -395,7 +395,7 @@ export function AdminClassDetailScreen() {
 
                 {/* Members */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>👥 Class Members ({members.length})</Text>
+                    <Text style={styles.sectionTitle}>Class Members ({members.length})</Text>
                     {members.length === 0 ? (
                         <Text style={styles.emptyText}>No members found</Text>
                     ) : (
@@ -474,14 +474,18 @@ export function AdminClassDetailScreen() {
 
                 {/* Subjects */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>📚 Subjects ({subjects.length})</Text>
+                    <Text style={styles.sectionTitle}>Subjects ({subjects.length})</Text>
                     {subjects.length === 0 ? (
                         <Text style={styles.emptyText}>No subjects created</Text>
                     ) : (
                         subjects.map((subject) => (
                             <View key={subject.id} style={styles.subjectCard}>
                                 <View style={styles.subjectIcon}>
-                                    <Text style={styles.iconText}>{subject.type === 'CLASS' ? '🏫' : '🔬'}</Text>
+                                    <Ionicons
+                                        name={subject.type === 'CLASS' ? 'school-outline' : 'flask-outline'}
+                                        size={20}
+                                        color={COLORS.primary}
+                                    />
                                 </View>
                                 <View style={styles.subjectBody}>
                                     <Text style={styles.subjectName}>{subject.name}</Text>
@@ -495,7 +499,7 @@ export function AdminClassDetailScreen() {
 
                 {/* Sessions */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>📅 Attendance Sessions ({sessions.length})</Text>
+                    <Text style={styles.sectionTitle}>Attendance Sessions ({sessions.length})</Text>
                     {sessions.length === 0 ? (
                         <Text style={styles.emptyText}>No sessions recorded</Text>
                     ) : (
@@ -539,7 +543,7 @@ export function AdminClassDetailScreen() {
                 visible={editVisible}
                 animationType="slide"
                 transparent
-                onRequestClose={() => !editSaving && setEditVisible(false)}
+                onRequestClose={() => { if (!editSaving) setEditVisible(false) }}
             >
                 <View style={styles.editOverlay}>
                     <View style={styles.editSheet}>

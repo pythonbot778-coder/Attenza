@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { StatusBar } from 'expo-status-bar'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { StyleSheet } from 'react-native'
 import { ErrorBoundary }  from './src/components/ErrorBoundary'
 import { RootNavigator }  from './src/navigation/RootNavigator'
@@ -11,6 +12,7 @@ import {
   handleInitialNotification,
 } from './src/utils/notificationUtils'
 import { NotificationBanner } from './src/components/NotificationBanner'
+import { CustomDialog } from './src/components/CustomDialog'
 
 const HYDRATION_TIMEOUT_MS = 8000
 
@@ -53,14 +55,18 @@ export default function App() {
   }, [isAuthenticated, isLoading, role])
 
   return (
-    <GestureHandlerRootView style={styles.root}>
-      <ErrorBoundary fallbackLabel="the app">
-        <StatusBar style="auto" />
-        {/* Global in-app banner, overlays on top of all screens */}
-        <NotificationBanner />
-        <RootNavigator />
-      </ErrorBoundary>
-    </GestureHandlerRootView>
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={styles.root}>
+        <ErrorBoundary fallbackLabel="the app">
+          <StatusBar style="auto" />
+          {/* Global in-app banner, overlays on top of all screens */}
+          <NotificationBanner />
+          {/* Global custom dialog & action sheet popup system */}
+          <CustomDialog />
+          <RootNavigator />
+        </ErrorBoundary>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   )
 }
 

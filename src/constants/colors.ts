@@ -5,37 +5,47 @@ export const COLORS = {
   primaryDark:    '#3730A3',
 
   // Attendance states
-  present:        '#22C55E',   // green
+  present:        '#16A34A',   // green
   presentLight:   '#DCFCE7',
-  absent:         '#EF4444',   // red
+  presentDark:    '#15803D',
+  absent:         '#DC2626',   // red
   absentLight:    '#FEE2E2',
+  absentDark:     '#B91C1C',
 
   // UI
   background:     '#F8FAFC',
   surface:        '#FFFFFF',
-  border:         '#E2E8F0',
-  borderLight:    '#F1F5F9',
+  border:         '#CBD5E1',   // darker, crisp border
+  borderLight:    '#E2E8F0',
 
-  // Text
+  // Text (High contrast)
   textPrimary:    '#0F172A',
-  textSecondary:  '#64748B',
-  textMuted:      '#94A3B8',
+  textSecondary:  '#334155',   // darker slate for clear readability
+  textMuted:      '#64748B',
   textOnPrimary:  '#FFFFFF',
 
   // Status
-  success:        '#22C55E',
-  warning:        '#F59E0B',
-  error:          '#EF4444',
-  info:           '#3B82F6',
+  success:        '#16A34A',
+  warning:        '#D97706',
+  error:          '#DC2626',
+  info:           '#2563EB',
 
   // Sync indicator
-  synced:         '#22C55E',
-  pending:        '#F59E0B',
-  failed:         '#EF4444',
+  synced:         '#16A34A',
+  pending:        '#D97706',
+  failed:         '#DC2626',
 
-  // Roles
-  crColor:        '#8B5CF6',   // purple
-  lrColor:        '#EC4899',   // pink
-  studentColor:   '#3B82F6',   // blue
-  adminColor:     '#F97316',   // orange
+  // Distinct CR / LR Roles
+  crColor:        '#4F46E5',   // Vibrant Indigo / Blue
+  crLight:        '#EEF2FF',
+  crDark:         '#3730A3',
+  crBorder:       '#C7D2FE',
+
+  lrColor:        '#DB2777',   // Stylish Magenta / Rose
+  lrLight:        '#FDF2F8',
+  lrDark:         '#9D174D',
+  lrBorder:       '#FBCFE8',
+
+  studentColor:   '#2563EB',   // Royal blue
+  adminColor:     '#EA580C',   // Deep orange
 }

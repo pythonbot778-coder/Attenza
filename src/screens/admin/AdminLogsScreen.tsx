@@ -93,7 +93,7 @@ export function AdminLogsScreen() {
                     }
                     ListEmptyComponent={
                         <View style={styles.centered}>
-                            <Text style={styles.emptyIcon}>📋</Text>
+                            <Ionicons name="clipboard-outline" size={44} color={COLORS.textMuted} style={{ marginBottom: 10 }} />
                             <Text style={styles.emptyText}>No logs yet</Text>
                         </View>
                     }

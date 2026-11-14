@@ -2,6 +2,7 @@ import React, { Component, ReactNode } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
 } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { COLORS } from '../constants/colors'
 
 interface Props {
@@ -42,7 +43,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return (
       <View style={styles.container}>
-        <Text style={styles.icon}>⚠️</Text>
+        <Ionicons name="alert-circle-outline" size={48} color={COLORS.error} style={{ marginBottom: 12 }} />
         <Text style={styles.title}>Something went wrong</Text>
         <Text style={styles.subtitle}>
           An unexpected error occurred in {label}.{'\n'}

@@ -7,18 +7,24 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
+import { useNavigation } from '@react-navigation/native'
 import { COLORS } from '../../constants/colors'
 import { supabase } from '../../api/supabase'
 import { useAuthStore } from '../../store/authStore'
+import {
+  showErrorDialog,
+  showSuccessDialog,
+} from '../../store/dialogStore'
 
 type RequestType = 'support' | 'suggestion'
 type Priority = 'low' | 'medium' | 'high'
 
 export function SupportSuggestionsScreen() {
+  const navigation = useNavigation<any>()
   const { userId, name, email, role, classId } = useAuthStore()
 
   const [type, setType] = useState<RequestType>('support')
@@ -31,9 +37,9 @@ export function SupportSuggestionsScreen() {
 
   const placeholder = useMemo(() => {
     if (isSupport) {
-      return 'Describe the issue clearly.\n\nExample:\n- What happened?\n- Which screen?\n- What did you expect instead?'
+      return 'Describe the issue clearly.\n\n• What happened?\n• Which screen or feature?\n• What did you expect to happen instead?'
     }
-    return 'Share your idea to improve the app.\n\nExample:\n- What feature do you want?\n- Why would it help students or CR/LR?'
+    return 'Share your thoughts and ideas.\n\n• What feature or improvement would you like to see?\n• How would it help students or CR/LR?'
   }, [isSupport])
 
   async function handleSubmit() {
@@ -41,23 +47,28 @@ export function SupportSuggestionsScreen() {
     const normalizedMessage = message.trim()
 
     if (!normalizedSubject) {
-      return Alert.alert('Missing Subject', 'Please enter a subject.')
+      showErrorDialog('Missing Subject', 'Please enter a subject.')
+      return
     }
 
     if (normalizedSubject.length < 4) {
-      return Alert.alert('Invalid Subject', 'Subject should be at least 4 characters long.')
+      showErrorDialog('Invalid Subject', 'Subject must be at least 4 characters long.')
+      return
     }
 
     if (!normalizedMessage) {
-      return Alert.alert('Missing Message', 'Please enter your message.')
+      showErrorDialog('Missing Message', 'Please enter your message.')
+      return
     }
 
     if (normalizedMessage.length < 10) {
-      return Alert.alert('Invalid Message', 'Please describe your support request or suggestion in more detail.')
+      showErrorDialog('Invalid Message', 'Please describe your request in more detail (at least 10 characters).')
+      return
     }
 
     if (!userId) {
-      return Alert.alert('Error', 'No active session found. Please login again.')
+      showErrorDialog('Session Error', 'No active session found. Please login again.')
+      return
     }
 
     try {
@@ -83,60 +94,26 @@ export function SupportSuggestionsScreen() {
       setPriority('medium')
       setType('support')
 
-      Alert.alert(
-        'Submitted',
+      showSuccessDialog(
+        'Submission Received',
         isSupport
-          ? 'Your support request has been submitted.'
-          : 'Your suggestion has been submitted. Thank you!'
+          ? 'Your support request has been recorded. Our team will review it.'
+          : 'Thank you for your suggestion! We are constantly improving Attenza.',
+        () => {
+          if (navigation.canGoBack()) navigation.goBack()
+        }
       )
     } catch (e: any) {
-      Alert.alert('Submission Failed', e?.message ?? 'Unable to submit right now.')
+      showErrorDialog('Submission Failed', e?.message ?? 'Unable to submit right now.')
     } finally {
       setSubmitting(false)
     }
   }
 
-  function SegmentedOption({
-    label,
-    active,
-    onPress,
-  }: {
-    label: string
-    active: boolean
-    onPress: () => void
-  }) {
-    return (
-      <TouchableOpacity
-        style={[styles.segmentBtn, active && styles.segmentBtnActive]}
-        onPress={onPress}
-        activeOpacity={0.85}
-      >
-        <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
-          {label}
-        </Text>
-      </TouchableOpacity>
-    )
-  }
-
-  function PriorityChip({
-    value,
-    label,
-  }: {
-    value: Priority
-    label: string
-  }) {
-    const active = priority === value
-    return (
-      <TouchableOpacity
-        style={[styles.chip, active && styles.chipActive]}
-        onPress={() => setPriority(value)}
-        activeOpacity={0.85}
-      >
-        <Text style={[styles.chipText, active && styles.chipTextActive]}>
-          {label}
-        </Text>
-      </TouchableOpacity>
-    )
+  const priorityConfigs: Record<Priority, { label: string; color: string; bg: string }> = {
+    low: { label: 'Low', color: COLORS.success, bg: COLORS.success + '15' },
+    medium: { label: 'Medium', color: COLORS.warning, bg: COLORS.warning + '15' },
+    high: { label: 'High', color: COLORS.absent, bg: COLORS.absent + '15' },
   }
 
   return (
@@ -144,210 +121,380 @@ export function SupportSuggestionsScreen() {
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={styles.container}>
+        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Support & Suggestions</Text>
-          <Text style={styles.subtitle}>
-            Need help or have an idea to improve the app? Send it here.
-          </Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionLabel}>Type</Text>
-          <View style={styles.segmentRow}>
-            <SegmentedOption
-              label="Support"
-              active={type === 'support'}
-              onPress={() => setType('support')}
-            />
-            <SegmentedOption
-              label="Suggestion"
-              active={type === 'suggestion'}
-              onPress={() => setType('suggestion')}
-            />
-          </View>
-
-          {isSupport && (
-            <>
-              <Text style={styles.sectionLabel}>Priority</Text>
-              <View style={styles.chipRow}>
-                <PriorityChip value="low" label="Low" />
-                <PriorityChip value="medium" label="Medium" />
-                <PriorityChip value="high" label="High" />
-              </View>
-            </>
+          {navigation.canGoBack() && (
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              style={styles.backBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="arrow-back" size={22} color={COLORS.primary} />
+            </TouchableOpacity>
           )}
-
-          <Text style={styles.sectionLabel}>Subject</Text>
-          <TextInput
-            style={styles.input}
-            value={subject}
-            onChangeText={setSubject}
-            placeholder={isSupport ? 'e.g. Unable to mark attendance' : 'e.g. Add attendance export feature'}
-            placeholderTextColor={COLORS.textMuted}
-            maxLength={100}
-          />
-
-          <Text style={styles.sectionLabel}>Message</Text>
-          <TextInput
-            style={[styles.input, styles.textarea]}
-            value={message}
-            onChangeText={setMessage}
-            placeholder={placeholder}
-            placeholderTextColor={COLORS.textMuted}
-            multiline
-            textAlignVertical="top"
-            maxLength={1200}
-          />
-
-          <View style={styles.metaBox}>
-            <Text style={styles.metaText}>From: {name ?? '—'}</Text>
-            <Text style={styles.metaText}>Email: {email ?? '—'}</Text>
-            <Text style={styles.metaText}>Role: {role ?? 'STUDENT'}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>Support & Feedback</Text>
+            <Text style={styles.headerSubtitle}>We're here to help make Attenza better</Text>
           </View>
-
-          <TouchableOpacity
-            style={[styles.submitBtn, submitting && styles.disabledBtn]}
-            onPress={handleSubmit}
-            disabled={submitting}
-            activeOpacity={0.85}
-          >
-            {submitting ? (
-              <ActivityIndicator color={COLORS.textOnPrimary} />
-            ) : (
-              <Text style={styles.submitText}>
-                {isSupport ? 'Submit Support Request' : 'Submit Suggestion'}
-              </Text>
-            )}
-          </TouchableOpacity>
         </View>
 
-        <View style={{ height: 28 }} />
-      </ScrollView>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Segmented Switcher Card */}
+          <View style={styles.segmentCard}>
+            <TouchableOpacity
+              style={[styles.segmentBtn, isSupport && styles.segmentBtnActive]}
+              onPress={() => setType('support')}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="construct-outline"
+                size={17}
+                color={isSupport ? '#fff' : COLORS.textSecondary}
+              />
+              <Text style={[styles.segmentText, isSupport && styles.segmentTextActive]}>
+                Report an Issue
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.segmentBtn, !isSupport && styles.segmentBtnActive]}
+              onPress={() => setType('suggestion')}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="bulb-outline"
+                size={17}
+                color={!isSupport ? '#fff' : COLORS.textSecondary}
+              />
+              <Text style={[styles.segmentText, !isSupport && styles.segmentTextActive]}>
+                Feature Idea
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Form Card */}
+          <View style={styles.card}>
+            {isSupport && (
+              <View style={styles.formGroup}>
+                <Text style={styles.sectionLabel}>Urgency / Priority</Text>
+                <View style={styles.priorityRow}>
+                  {(['low', 'medium', 'high'] as Priority[]).map((p) => {
+                    const active = priority === p
+                    const cfg = priorityConfigs[p]
+                    return (
+                      <TouchableOpacity
+                        key={p}
+                        style={[
+                          styles.priorityChip,
+                          active && { backgroundColor: cfg.bg, borderColor: cfg.color },
+                        ]}
+                        onPress={() => setPriority(p)}
+                        activeOpacity={0.8}
+                      >
+                        <View
+                          style={[
+                            styles.priorityDot,
+                            { backgroundColor: cfg.color },
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            styles.priorityChipText,
+                            active && { color: cfg.color, fontWeight: '800' },
+                          ]}
+                        >
+                          {cfg.label}
+                        </Text>
+                      </TouchableOpacity>
+                    )
+                  })}
+                </View>
+              </View>
+            )}
+
+            <View style={styles.formGroup}>
+              <Text style={styles.sectionLabel}>Subject</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons
+                  name={isSupport ? 'alert-circle-outline' : 'chatbubble-ellipses-outline'}
+                  size={18}
+                  color={COLORS.textSecondary}
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={styles.input}
+                  value={subject}
+                  onChangeText={setSubject}
+                  placeholder={
+                    isSupport
+                      ? 'e.g. Session did not sync offline'
+                      : 'e.g. Dark mode option for attendance'
+                  }
+                  placeholderTextColor={COLORS.textMuted}
+                  maxLength={100}
+                />
+              </View>
+            </View>
+
+            <View style={styles.formGroup}>
+              <View style={styles.labelRow}>
+                <Text style={styles.sectionLabel}>Detailed Message</Text>
+                <Text style={styles.charCount}>{message.length}/1200</Text>
+              </View>
+              <TextInput
+                style={[styles.input, styles.textarea]}
+                value={message}
+                onChangeText={setMessage}
+                placeholder={placeholder}
+                placeholderTextColor={COLORS.textMuted}
+                multiline
+                textAlignVertical="top"
+                maxLength={1200}
+              />
+            </View>
+
+            {/* Submitter Info Strip */}
+            <View style={styles.metaBox}>
+              <View style={styles.metaRow}>
+                <Ionicons name="person-circle-outline" size={16} color={COLORS.textSecondary} />
+                <Text style={styles.metaText}>Sender: <Text style={styles.metaBold}>{name ?? '—'}</Text> ({role ?? 'STUDENT'})</Text>
+              </View>
+              <View style={styles.metaRow}>
+                <Ionicons name="mail-outline" size={16} color={COLORS.textSecondary} />
+                <Text style={styles.metaText}>{email ?? '—'}</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.submitBtn, submitting && styles.disabledBtn]}
+              onPress={handleSubmit}
+              disabled={submitting}
+              activeOpacity={0.85}
+            >
+              {submitting ? (
+                <ActivityIndicator color={COLORS.textOnPrimary} />
+              ) : (
+                <View style={styles.submitBtnInner}>
+                  <Ionicons name="send" size={17} color="#fff" />
+                  <Text style={styles.submitText}>
+                    {isSupport ? 'Submit Support Request' : 'Send Feedback'}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  content: { padding: 20, paddingTop: 28, paddingBottom: 32 },
-  header: { marginBottom: 18 },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 52,
+    paddingBottom: 14,
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '900',
     color: COLORS.textPrimary,
   },
-  subtitle: {
-    marginTop: 6,
-    fontSize: 14,
-    lineHeight: 20,
+  headerSubtitle: {
+    fontSize: 12,
     color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  content: {
+    padding: 16,
+  },
+  segmentCard: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surface,
+    padding: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 16,
+    gap: 6,
+  },
+  segmentBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  segmentBtnActive: {
+    backgroundColor: COLORS.primary,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  segmentText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+  },
+  segmentTextActive: {
+    color: '#fff',
   },
   card: {
     backgroundColor: COLORS.surface,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 16,
+    padding: 18,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  formGroup: {
+    marginBottom: 16,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
   },
   sectionLabel: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
     color: COLORS.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
-    marginBottom: 10,
-    marginTop: 14,
+    marginBottom: 6,
   },
-  segmentRow: {
+  charCount: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+  },
+  priorityRow: {
     flexDirection: 'row',
     gap: 10,
   },
-  segmentBtn: {
+  priorityChip: {
     flex: 1,
-    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
     borderRadius: 12,
     backgroundColor: COLORS.background,
     borderWidth: 1.5,
     borderColor: COLORS.border,
-    alignItems: 'center',
   },
-  segmentBtnActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+  priorityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  segmentText: {
-    fontSize: 14,
+  priorityChipText: {
+    fontSize: 12,
     fontWeight: '700',
     color: COLORS.textSecondary,
   },
-  segmentTextActive: {
-    color: COLORS.textOnPrimary,
-  },
-  chipRow: {
+  inputWrapper: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 2,
-  },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 20,
+    alignItems: 'center',
     backgroundColor: COLORS.background,
     borderWidth: 1.5,
     borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 12,
   },
-  chipActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.textSecondary,
-  },
-  chipTextActive: {
-    color: COLORS.textOnPrimary,
+  inputIcon: {
+    marginRight: 8,
   },
   input: {
-    backgroundColor: COLORS.background,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
+    flex: 1,
     paddingVertical: 12,
-    fontSize: 15,
+    fontSize: 14,
     color: COLORS.textPrimary,
   },
   textarea: {
-    minHeight: 150,
-    paddingTop: 12,
+    backgroundColor: COLORS.background,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: COLORS.textPrimary,
+    minHeight: 140,
   },
   metaBox: {
-    marginTop: 14,
     padding: 12,
     borderRadius: 12,
     backgroundColor: COLORS.background,
     borderWidth: 1,
     borderColor: COLORS.border,
-    gap: 4,
+    gap: 6,
+    marginBottom: 18,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   metaText: {
     fontSize: 12,
     color: COLORS.textSecondary,
-    fontWeight: '500',
+  },
+  metaBold: {
+    color: COLORS.textPrimary,
+    fontWeight: '700',
   },
   submitBtn: {
-    marginTop: 16,
     backgroundColor: COLORS.primary,
     borderRadius: 12,
-    paddingVertical: 15,
+    paddingVertical: 14,
     alignItems: 'center',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  submitBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   submitText: {
     color: COLORS.textOnPrimary,

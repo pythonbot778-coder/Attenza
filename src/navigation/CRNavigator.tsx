@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, StyleSheet, Platform } from 'react-native'
+import { StyleSheet, Platform } from 'react-native'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { createStackNavigator } from '@react-navigation/stack'
 import { Ionicons } from '@expo/vector-icons'
@@ -15,7 +15,8 @@ import { AttendanceSummaryScreen } from '../screens/cr_lr/AttendanceSummaryScree
 import { ProfileScreen } from '../screens/cr_lr/ProfileScreen'
 import { SubjectStatsScreen } from '../screens/cr_lr/SubjectStatsScreen'
 import { EditSubjectScreen } from '../screens/cr_lr/EditSubjectScreen'
-import { StudentNavigator } from './StudentNavigator'
+// Preserved for future restoration:
+// import { StudentNavigator } from './StudentNavigator'
 import { SupportSuggestionsScreen } from '../screens/shared/SupportSuggestionsScreen'
 
 export type HomeStackParams = {
@@ -40,6 +41,8 @@ export type HomeStackParams = {
     presentRolls: string[]
     batchName?: string | null
     sessionId: string
+    durationHours?: number
+    substituteTeacher?: string | null
   }
   SubjectStats: {
     subjectId: string
@@ -110,58 +113,67 @@ function ProfileStackNavigator() {
 
 const Tab = createBottomTabNavigator()
 
-function TabIcon({ name, focused }: { name: keyof typeof Ionicons.glyphMap; focused: boolean }) {
-  return (
-    <View style={styles.iconWrap}>
-      <Ionicons name={name} size={24} color={focused ? COLORS.primary : COLORS.textMuted} />
-      {focused && <View style={styles.dot} />}
-    </View>
-  )
-}
-
 export function CRNavigator() {
   const insets = useSafeAreaInsets()
+  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 10 : 8)
 
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: {
-          backgroundColor: COLORS.surface,
-          borderTopColor: COLORS.border,
-          borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 40 + insets.bottom : 48 + Math.max(insets.bottom, 12),
-          paddingBottom: Platform.OS === 'ios' ? insets.bottom : Math.max(insets.bottom, 12),
-          paddingTop: 6,
+        tabBarActiveTintColor: COLORS.primary,
+        tabBarInactiveTintColor: '#64748B',
+        tabBarShowLabel: true,
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '700',
+          marginBottom: 4,
         },
-        tabBarShowLabel: false,
+        tabBarStyle: {
+          backgroundColor: '#FFFFFF',
+          borderTopColor: '#E2E8F0',
+          borderTopWidth: 1,
+          height: 56 + bottomInset,
+          paddingTop: 8,
+          paddingBottom: bottomInset,
+          elevation: 8,
+          shadowColor: '#0F172A',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 6,
+        },
       }}
     >
       <Tab.Screen
         name="HomeTab"
         component={HomeStackNavigator}
-        options={{ tabBarIcon: ({ focused }) => <TabIcon name={focused ? 'home' : 'home-outline'} focused={focused} /> }}
+        options={{
+          tabBarLabel: 'Home',
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
+          ),
+        }}
       />
       <Tab.Screen
         name="HistoryTab"
         component={HistoryStackNavigator}
-        options={{ tabBarIcon: ({ focused }) => <TabIcon name={focused ? 'time' : 'time-outline'} focused={focused} /> }}
-      />
-      <Tab.Screen
-        name="StudentTab"
-        component={StudentNavigator}
-        options={{ tabBarIcon: ({ focused }) => <TabIcon name={focused ? 'school' : 'school-outline'} focused={focused} /> }}
+        options={{
+          tabBarLabel: 'History',
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons name={focused ? 'time' : 'time-outline'} size={22} color={color} />
+          ),
+        }}
       />
       <Tab.Screen
         name="ProfileTab"
         component={ProfileStackNavigator}
-        options={{ tabBarIcon: ({ focused }) => <TabIcon name={focused ? 'person' : 'person-outline'} focused={focused} /> }}
+        options={{
+          tabBarLabel: 'Profile',
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
+          ),
+        }}
       />
     </Tab.Navigator>
   )
 }
-
-const styles = StyleSheet.create({
-  iconWrap: { alignItems: 'center', justifyContent: 'center', gap: 4 },
-  dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.primary },
-})

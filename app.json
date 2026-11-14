@@ -10,11 +10,6 @@
     "userInterfaceStyle": "light",
     "scheme": "attenza",
     "icon": "./assets/icon.png",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#4F46E5"
-    },
     "ios": {
       "bundleIdentifier": "com.vindra.attenza",
       "buildNumber": "1",
@@ -47,9 +42,17 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#4F46E5"
+        }
+      ],
       "expo-secure-store",
       "expo-notifications",
-      "./withAndroidManifestFix",
+      "./withAndroidFixes",
       [
         "expo-build-properties",
         {
@@ -59,11 +62,13 @@
             "buildToolsVersion": "35.0.0"
           },
           "ios": {
-            "deploymentTarget": "15.1"
+            "deploymentTarget": "16.4"
           }
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-sharing",
+      "expo-status-bar"
     ],
     "updates": {
       "url": "https://u.expo.dev/3a04ba9e-0d30-4743-8e60-f735894d2922",
