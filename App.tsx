@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { StyleSheet } from 'react-native'
+import * as SplashScreen from 'expo-splash-screen'
 import { ErrorBoundary }  from './src/components/ErrorBoundary'
 import { RootNavigator }  from './src/navigation/RootNavigator'
 import { hydrateAuthState, useAuthStore } from './src/store/authStore'
@@ -20,6 +21,9 @@ export default function App() {
   const cleanupListeners = useRef<(() => void) | null>(null)
 
   useEffect(() => {
+    // Dismiss native splash screen so app or animated splash screen is visible
+    SplashScreen.hideAsync().catch(() => {})
+
     // hydrate auth from storage
     hydrateAuthState()
 

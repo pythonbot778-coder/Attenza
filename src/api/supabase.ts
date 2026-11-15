@@ -1,16 +1,14 @@
 import { createClient } from '@supabase/supabase-js'
 import * as SecureStore from 'expo-secure-store'
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
+const DEFAULT_SUPABASE_URL = 'https://ffcnppjrdxpinaebwmbd.supabase.co'
+const DEFAULT_SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmY25wcGpyZHhwaW5hZWJ3bWJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjkyMzIsImV4cCI6MjA5MzMwNTIzMn0.lUXXN-y0semJ6ypo_VaR_KySjzhtu9TooIOF2jHgEpY'
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error(
-    '[Attenza] Missing Supabase credentials. Check eas.json env or your .env file.'
-  )
-} else {
-  console.log('[Attenza] Connecting to Supabase:', supabaseUrl)
-}
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY
+
+console.log('[Attenza] Connecting to Supabase:', supabaseUrl)
 
 // Splits large values into chunks to stay under SecureStore's 2048 byte limit
 const CHUNK_SIZE = 1900
