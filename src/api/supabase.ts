@@ -1,14 +1,14 @@
 import { createClient } from '@supabase/supabase-js'
 import * as SecureStore from 'expo-secure-store'
 
-const DEFAULT_SUPABASE_URL = 'https://ffcnppjrdxpinaebwmbd.supabase.co'
-const DEFAULT_SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmY25wcGpyZHhwaW5hZWJ3bWJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjkyMzIsImV4cCI6MjA5MzMwNTIzMn0.lUXXN-y0semJ6ypo_VaR_KySjzhtu9TooIOF2jHgEpY'
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY
-
-console.log('[Attenza] Connecting to Supabase:', supabaseUrl)
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn(
+    '[Attenza] Missing Supabase credentials. Ensure .env or build environment variables are set.'
+  )
+}
 
 // Splits large values into chunks to stay under SecureStore's 2048 byte limit
 const CHUNK_SIZE = 1900
@@ -69,11 +69,16 @@ const ChunkedSecureStore = {
   },
 }
 
-export const supabase = createClient(supabaseUrl ?? '', supabaseAnonKey ?? '', {
-  auth: {
-    storage: ChunkedSecureStore,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-})
+// Fallback to placeholder strings so createClient never throws during module load if env vars are missing
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder-anon-key',
+  {
+    auth: {
+      storage: ChunkedSecureStore,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+    },
+  }
+)

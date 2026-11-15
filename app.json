@@ -76,9 +76,7 @@
     "extra": {
       "eas": {
         "projectId": "3a04ba9e-0d30-4743-8e60-f735894d2922"
-      },
-      "EXPO_PUBLIC_SUPABASE_URL": "https://ffcnppjrdxpinaebwmbd.supabase.co",
-      "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmY25wcGpyZHhwaW5hZWJ3bWJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjkyMzIsImV4cCI6MjA5MzMwNTIzMn0.lUXXN-y0semJ6ypo_VaR_KySjzhtu9TooIOF2jHgEpY"
+      }
     }
   }
 }
